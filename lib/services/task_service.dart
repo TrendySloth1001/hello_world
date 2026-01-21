@@ -1,0 +1,117 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/task.dart';
+
+class TaskService {
+  static const String baseUrl = 'https://qjhcp0ph-3005.inc1.devtunnels.ms/task';
+
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
+
+  Future<Map<String, String>> _getHeaders() async {
+    final token = await _getToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<Task> createTask({
+    required int workspaceId,
+    required String title,
+    String? description,
+    required String priority,
+    DateTime? dueDate,
+    int? assignedToId,
+  }) async {
+    final response = await http.post(
+      Uri.parse(baseUrl),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'workspaceId': workspaceId,
+        'title': title,
+        'description': description,
+        'priority': priority,
+        'dueDate': dueDate?.toIso8601String(),
+        'assignedToId': assignedToId,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      return Task.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<List<Task>> getWorkspaceTasks(int workspaceId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/workspace/$workspaceId'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List)
+          .map((e) => Task.fromJson(e))
+          .toList();
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<Task> getTaskDetails(int taskId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/$taskId'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return Task.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<Task> updateTask(int taskId, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/$taskId'),
+      headers: await _getHeaders(),
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode == 200) {
+      return Task.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<Comment> addComment(int taskId, String content) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/comments'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'content': content}),
+    );
+
+    if (response.statusCode == 201) {
+      return Comment.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<void> respondToTask(int taskId, String status) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/respond'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'status': status}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+}
