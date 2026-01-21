@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
+import '../config/onboarding_config.dart';
+import 'home_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -22,17 +24,15 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     try {
-      final response = await _authController.signup(
+      await _authController.signup(
         _emailController.text,
         _passwordController.text,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Account created for ${response.user['email']}!'),
-          ),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
-        Navigator.pop(context); // Go back to login
       }
     } catch (e) {
       if (mounted) {
@@ -52,33 +52,83 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            if (_errorMessage.isNotEmpty)
-              Text(_errorMessage, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 20),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: _signup,
-                    child: const Text('Sign Up'),
+      appBar: AppBar(
+        title: const Text('Create Account'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              // Signup GIF
+              Image.asset(AppAssets.signup, height: 200, fit: BoxFit.contain),
+              const SizedBox(height: 32),
+              Text(
+                'Join TaskFlow',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Create your account to get started',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+              ),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+                obscureText: true,
+              ),
+              const SizedBox(height: 24),
+              if (_errorMessage.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red),
                   ),
-          ],
+                  child: Text(
+                    _errorMessage,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _signup,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Text('Sign Up'),
+                        ),
+                      ),
+                    ),
+            ],
+          ),
         ),
       ),
     );

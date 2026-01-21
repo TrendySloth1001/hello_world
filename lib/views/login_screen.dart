@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../controllers/auth_controller.dart';
+import '../config/onboarding_config.dart';
+import 'home_screen.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -33,12 +35,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (googleUser != null) {
         final GoogleSignInAuthentication googleAuth =
             await googleUser.authentication;
-        final response = await _authController.signInWithGoogle(
-          googleAuth.idToken,
-        );
+        await _authController.signInWithGoogle(googleAuth.idToken);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Welcome, ${response.user['email']}!')),
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
           );
         }
       }
@@ -64,13 +65,14 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await _authController.login(
+      await _authController.login(
         _emailController.text,
         _passwordController.text,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome back, ${response.user['email']}!')),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       }
     } catch (e) {
@@ -91,56 +93,101 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            if (_errorMessage.isNotEmpty)
-              Text(_errorMessage, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 20),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : Column(
-                    children: [
-                      ElevatedButton(
-                        onPressed: _login,
-                        child: const Text('Login'),
-                      ),
-                      const SizedBox(height: 10),
-                      ElevatedButton.icon(
-                        onPressed: _handleGoogleSignIn,
-                        icon: const Icon(Icons.login),
-                        label: const Text('Sign in with Google'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              // Login GIF
+              Image.asset(AppAssets.login, height: 200, fit: BoxFit.contain),
+              const SizedBox(height: 32),
+              Text(
+                'Welcome Back',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sign in to continue',
+                style: Theme.of(
                   context,
-                  MaterialPageRoute(builder: (context) => const SignupScreen()),
-                );
-              },
-              child: const Text('Don\'t have an account? Sign up'),
-            ),
-          ],
+                ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+              ),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+                obscureText: true,
+              ),
+              const SizedBox(height: 24),
+              if (_errorMessage.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red),
+                  ),
+                  child: Text(
+                    _errorMessage,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _login,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Login'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _handleGoogleSignIn,
+                          icon: const Icon(Icons.g_mobiledata, size: 24),
+                          label: const Text('Sign in with Google'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+              const SizedBox(height: 24),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SignupScreen(),
+                    ),
+                  );
+                },
+                child: const Text("Don't have an account? Sign up"),
+              ),
+            ],
+          ),
         ),
       ),
     );
