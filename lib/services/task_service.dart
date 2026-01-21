@@ -25,7 +25,8 @@ class TaskService {
     String? description,
     required String priority,
     DateTime? dueDate,
-    int? assignedToId,
+    List<int>? assigneeIds,
+    bool isPrivate = false,
   }) async {
     final response = await http.post(
       Uri.parse(baseUrl),
@@ -36,7 +37,8 @@ class TaskService {
         'description': description,
         'priority': priority,
         'dueDate': dueDate?.toIso8601String(),
-        'assignedToId': assignedToId,
+        'assigneeIds': assigneeIds,
+        'isPrivate': isPrivate,
       }),
     );
 
@@ -89,15 +91,37 @@ class TaskService {
     }
   }
 
-  Future<Comment> addComment(int taskId, String content) async {
+  Future<Comment> addComment(
+    int taskId,
+    String content, {
+    int? parentId,
+  }) async {
+    final Map<String, dynamic> body = {'content': content};
+    if (parentId != null) {
+      body['parentId'] = parentId;
+    }
+
     final response = await http.post(
       Uri.parse('$baseUrl/$taskId/comments'),
       headers: await _getHeaders(),
-      body: jsonEncode({'content': content}),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 201) {
       return Comment.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleCommentLike(int commentId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/comments/$commentId/like'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }

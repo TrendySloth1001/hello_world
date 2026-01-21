@@ -28,10 +28,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   final _descriptionController = TextEditingController();
   String _priority = 'MEDIUM';
   DateTime? _dueDate;
-  WorkspaceMember? _assignedMember;
+  final List<WorkspaceMember> _selectedMembers = [];
   List<WorkspaceMember> _members = [];
   bool _isLoadingMembers = true;
   bool _isCreating = false;
+  bool _isPrivate = false;
 
   @override
   void initState() {
@@ -72,7 +73,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             : _descriptionController.text,
         priority: _priority,
         dueDate: _dueDate,
-        assignedToId: _assignedMember?.user.id,
+        assigneeIds: _selectedMembers.map((m) => m.user.id).toList(),
+        isPrivate: _isPrivate,
       );
 
       if (mounted) {
@@ -98,6 +100,25 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     }
   }
 
+  void _showMultiSelectDialog() async {
+    final selected = await showDialog<List<WorkspaceMember>>(
+      context: context,
+      builder: (ctx) {
+        return _MultiSelectDialog(
+          members: _members,
+          initialSelected: _selectedMembers,
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _selectedMembers.clear();
+        _selectedMembers.addAll(selected);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -111,7 +132,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -132,9 +153,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               padding: const EdgeInsets.all(24),
               child: Row(
                 children: [
-                  const Text(
-                    'New Task',
-                    style: TextStyle(
+                  Text(
+                    _isPrivate ? 'New Private Task' : 'New Task',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -252,62 +273,84 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      // Assignee
-                      const Text(
-                        'Assign To',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      // Private Task Toggle
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Private Task',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: const Text(
+                          'Only you and assignees can see this task',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        value: _isPrivate,
+                        activeColor: Colors.amber,
+                        onChanged: (val) => setState(() => _isPrivate = val),
+                      ),
+                      const SizedBox(height: 24),
+                      // Assignees
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Assign To',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _isLoadingMembers
+                                ? null
+                                : _showMultiSelectDialog,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Add Assignees'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.amber,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
-                      _isLoadingMembers
-                          ? const Center(child: CircularProgressIndicator())
-                          : DropdownButtonFormField<WorkspaceMember>(
-                              value: _assignedMember,
-                              dropdownColor: const Color(0xFF2C2C2C),
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                hintText: 'Select Member (Optional)',
-                                hintStyle: TextStyle(color: Colors.white38),
-                              ),
-                              items: [
-                                const DropdownMenuItem<WorkspaceMember>(
-                                  value: null,
-                                  child: Text('Unassigned (Self)'),
-                                ),
-                                ..._members.map(
-                                  (m) => DropdownMenuItem(
-                                    value: m,
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 12,
-                                          backgroundImage:
-                                              m.user.avatarUrl != null
-                                              ? NetworkImage(m.user.avatarUrl!)
-                                              : null,
-                                          child: m.user.avatarUrl == null
-                                              ? Text(
-                                                  m.user.email[0].toUpperCase(),
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                  ),
-                                                )
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          m.user.email,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
+                      if (_selectedMembers.isEmpty)
+                        const Text(
+                          'No members assigned (Self-assigned by default logic)',
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _selectedMembers
+                              .map(
+                                (m) => Chip(
+                                  avatar: CircleAvatar(
+                                    backgroundImage: m.user.avatarUrl != null
+                                        ? NetworkImage(m.user.avatarUrl!)
+                                        : null,
+                                    child: m.user.avatarUrl == null
+                                        ? Text(m.user.email[0].toUpperCase())
+                                        : null,
                                   ),
+                                  label: Text(m.user.email),
+                                  backgroundColor: Colors.white10,
+                                  labelStyle: const TextStyle(
+                                    color: Colors.white,
+                                  ),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _selectedMembers.remove(m);
+                                    });
+                                  },
+                                  deleteIconColor: Colors.white54,
                                 ),
-                              ],
-                              onChanged: (val) =>
-                                  setState(() => _assignedMember = val),
-                            ),
+                              )
+                              .toList(),
+                        ),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -343,6 +386,91 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MultiSelectDialog extends StatefulWidget {
+  final List<WorkspaceMember> members;
+  final List<WorkspaceMember> initialSelected;
+
+  const _MultiSelectDialog({
+    required this.members,
+    required this.initialSelected,
+  });
+
+  @override
+  State<_MultiSelectDialog> createState() => _MultiSelectDialogState();
+}
+
+class _MultiSelectDialogState extends State<_MultiSelectDialog> {
+  late List<WorkspaceMember> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.initialSelected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF2C2C2C),
+      title: const Text(
+        'Select Assignees',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: widget.members.length,
+          itemBuilder: (context, index) {
+            final member = widget.members[index];
+            final isSelected = _selected.contains(member);
+            return CheckboxListTile(
+              value: isSelected,
+              title: Text(
+                member.user.email,
+                style: const TextStyle(color: Colors.white),
+              ),
+              secondary: CircleAvatar(
+                backgroundImage: member.user.avatarUrl != null
+                    ? NetworkImage(member.user.avatarUrl!)
+                    : null,
+                child: member.user.avatarUrl == null
+                    ? Text(member.user.email[0].toUpperCase())
+                    : null,
+              ),
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) {
+                    _selected.add(member);
+                  } else {
+                    _selected.remove(member);
+                  }
+                });
+              },
+              activeColor: Colors.amber,
+              checkColor: Colors.black,
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _selected),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber,
+            foregroundColor: Colors.black,
+          ),
+          child: const Text('Confirm'),
+        ),
+      ],
     );
   }
 }

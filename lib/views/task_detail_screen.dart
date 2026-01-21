@@ -25,6 +25,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Task? _task;
   bool _isLoading = true;
   bool _isSendingComment = false;
+  int? _replyingToCommentId; // ID of the comment being replied to
+  String? _replyingToUserEmail; // Email for display in input
 
   @override
   void initState() {
@@ -59,13 +61,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       await _taskService.addComment(
         widget.taskId,
         _commentController.text.trim(),
+        parentId: _replyingToCommentId,
       );
       _commentController.clear();
+      setState(() {
+        _replyingToCommentId = null;
+        _replyingToUserEmail = null;
+      });
       await _loadTask(); // Refresh to show new comment
       // Scroll to bottom
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          0, // We list comments reversed (newest first) usually, or we can scroll to end
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -79,6 +86,61 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } finally {
       if (mounted) setState(() => _isSendingComment = false);
     }
+  }
+
+  Future<void> _toggleLike(int commentId) async {
+    // Optimistic Update
+    setState(() {
+      _applyOptimisticLike(_task!.comments!, commentId, widget.currentUserId);
+    });
+
+    try {
+      await _taskService.toggleCommentLike(commentId);
+      // We could reload to sync exact server state, but optimistic is reliable enough for likes
+      // _loadTask();
+    } catch (e) {
+      // Revert if failed
+      if (mounted) {
+        setState(() {
+          _applyOptimisticLike(
+            _task!.comments!,
+            commentId,
+            widget.currentUserId,
+          );
+        });
+        // Optional: Show error only if it's NOT a unique constraint failure (which implies race/double click success)
+        if (!e.toString().contains('Unique constraint')) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to update like: $e')));
+        }
+      }
+    }
+  }
+
+  bool _applyOptimisticLike(List<Comment> comments, int targetId, int userId) {
+    for (var comment in comments) {
+      if (comment.id == targetId) {
+        final existingLikeIndex =
+            comment.likes?.indexWhere((l) => l.userId == userId) ?? -1;
+        if (existingLikeIndex != -1) {
+          // Unlike
+          comment.likes!.removeAt(existingLikeIndex);
+        } else {
+          // Like
+          comment.likes ??= [];
+          comment.likes!.add(
+            CommentLike(id: 0, userId: userId, commentId: targetId),
+          );
+        }
+        return true;
+      }
+      if (comment.replies != null) {
+        if (_applyOptimisticLike(comment.replies!, targetId, userId))
+          return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -159,6 +221,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
+  void _startReply(int commentId, String userEmail) {
+    setState(() {
+      _replyingToCommentId = commentId;
+      _replyingToUserEmail = userEmail;
+    });
+    // Focus input
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingToCommentId = null;
+      _replyingToUserEmail = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -176,6 +253,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       );
     }
+
+    // Find current user's assignment
+    final myAssignment = _task!.assignments?.firstWhere(
+      (a) => a.user?.id == widget.currentUserId,
+      orElse: () => TaskAssignment(
+        id: 0,
+        taskId: 0,
+        status: 'NONE',
+        timestamp: DateTime.now(),
+      ),
+    );
+    // Note: The orElse return is a dummy and won't have a user, so be careful checking `myAssignment.user`
+
+    final isAssignedToMe =
+        myAssignment != null &&
+        myAssignment.status != 'NONE' &&
+        myAssignment.user != null;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -220,6 +314,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,27 +376,58 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Assignee
-                  if (_task!.assignedTo != null)
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.person_outline,
-                          color: Colors.white54,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Assigned to: ${_task!.assignedTo!.email}',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
+                  const SizedBox(height: 24),
+                  // Assignments List
+                  const Text(
+                    'Assignees',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_task!.assignments != null &&
+                      _task!.assignments!.isNotEmpty)
+                    ..._task!.assignments!.map(
+                      (assignment) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundImage:
+                                  assignment.user?.avatarUrl != null
+                                  ? NetworkImage(assignment.user!.avatarUrl!)
+                                  : null,
+                              child: assignment.user?.avatarUrl == null
+                                  ? Text(
+                                      assignment.user?.email[0].toUpperCase() ??
+                                          'U',
+                                      style: const TextStyle(fontSize: 10),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              assignment.user?.email ?? 'Unknown',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            const Spacer(),
+                            _buildAssignmentStatusBadge(assignment.status),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    const Text(
+                      'No assignees',
+                      style: TextStyle(color: Colors.white38),
+                    ),
+
                   const SizedBox(height: 32),
-                  // Assignment Approval
-                  if (_task!.assignmentStatus == 'PENDING' &&
-                      _task!.assignedToId == widget.currentUserId) ...[
+                  // Assignment Approval (Only for me if Pending)
+                  if (isAssignedToMe && myAssignment!.status == 'PENDING') ...[
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -372,73 +498,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (_task!.comments != null && _task!.comments!.isNotEmpty)
-                    ListView.separated(
+                    ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _task!.comments!.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 16),
                       itemBuilder: (context, index) {
-                        final comment = _task!.comments![index];
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundImage: comment.user?.avatarUrl != null
-                                  ? NetworkImage(comment.user!.avatarUrl!)
-                                  : null,
-                              child: comment.user?.avatarUrl == null
-                                  ? Text(comment.user!.email[0].toUpperCase())
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          comment.user?.email ?? 'Unknown',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          DateFormat(
-                                            'MMM d, h:mm a',
-                                          ).format(comment.createdAt),
-                                          style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      comment.content,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
+                        return _buildCommentTree(_task!.comments![index]);
                       },
                     )
                   else
@@ -457,40 +522,228 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               color: Color(0xFF1E1E1E),
               border: Border(top: BorderSide(color: Colors.white10)),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Add a comment...',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.05),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                if (_replyingToUserEmail != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Replying to $_replyingToUserEmail',
+                          style: const TextStyle(
+                            color: Colors.amber,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: _cancelReply,
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.white54,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _isSendingComment ? null : _addComment,
-                  icon: _isSendingComment
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send, color: Colors.amber),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _commentController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Add a comment...',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _isSendingComment ? null : _addComment,
+                      icon: _isSendingComment
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send, color: Colors.amber),
+                    ),
+                  ],
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssignmentStatusBadge(String status) {
+    Color color;
+    switch (status) {
+      case 'ACCEPTED':
+        color = Colors.green;
+        break;
+      case 'REJECTED':
+        color = Colors.red;
+        break;
+      default:
+        color = Colors.amber;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommentTree(Comment comment) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildCommentItem(comment),
+        if (comment.replies != null && comment.replies!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 32.0), // Indent replies
+            child: Column(
+              children: comment.replies!
+                  .map((reply) => _buildCommentTree(reply))
+                  .toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCommentItem(Comment comment) {
+    final hasLiked =
+        comment.likes?.any((l) => l.userId == widget.currentUserId) ?? false;
+    final likesCount = comment.likes?.length ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundImage: comment.user?.avatarUrl != null
+                ? NetworkImage(comment.user!.avatarUrl!)
+                : null,
+            child: comment.user?.avatarUrl == null
+                ? Text(
+                    comment.user?.email[0].toUpperCase() ?? 'U',
+                    style: const TextStyle(fontSize: 10),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          comment.user?.email ?? 'Unknown',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('MMM d, h:mm a').format(comment.createdAt),
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    comment.content,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 8),
+                  // Actions: Like & Reply
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () => _toggleLike(comment.id),
+                        child: Row(
+                          children: [
+                            Icon(
+                              hasLiked ? Icons.favorite : Icons.favorite_border,
+                              size: 14,
+                              color: hasLiked ? Colors.red : Colors.white54,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$likesCount',
+                              style: TextStyle(
+                                color: hasLiked ? Colors.red : Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      InkWell(
+                        onTap: () => _startReply(
+                          comment.id,
+                          comment.user?.email ?? 'Unknown',
+                        ),
+                        child: const Text(
+                          'Reply',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

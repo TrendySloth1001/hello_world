@@ -6,12 +6,10 @@ class Task {
   final String? description;
   final String status;
   final String priority;
-  final String assignmentStatus;
   final DateTime? dueDate;
   final DateTime createdAt;
   final User? createdBy;
-  final User? assignedTo;
-  final int? assignedToId;
+  final List<TaskAssignment>? assignments;
   final List<Comment>? comments;
   final List<TaskActivity>? activities;
   final int commentCount;
@@ -22,12 +20,10 @@ class Task {
     this.description,
     required this.status,
     required this.priority,
-    this.assignmentStatus = 'ACCEPTED',
     this.dueDate,
     required this.createdAt,
     this.createdBy,
-    this.assignedTo,
-    this.assignedToId,
+    this.assignments,
     this.comments,
     this.activities,
     this.commentCount = 0,
@@ -40,16 +36,16 @@ class Task {
       description: json['description'],
       status: json['status'],
       priority: json['priority'],
-      assignmentStatus: json['assignmentStatus'] ?? 'ACCEPTED',
       dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
       createdAt: DateTime.parse(json['createdAt']),
       createdBy: json['createdBy'] != null
           ? User.fromJson(json['createdBy'])
           : null,
-      assignedTo: json['assignedTo'] != null
-          ? User.fromJson(json['assignedTo'])
+      assignments: json['assignments'] != null
+          ? (json['assignments'] as List)
+                .map((e) => TaskAssignment.fromJson(e))
+                .toList()
           : null,
-      assignedToId: json['assignedToId'],
       comments: json['comments'] != null
           ? (json['comments'] as List).map((e) => Comment.fromJson(e)).toList()
           : null,
@@ -59,6 +55,34 @@ class Task {
                 .toList()
           : null,
       commentCount: json['_count'] != null ? json['_count']['comments'] : 0,
+    );
+  }
+}
+
+class TaskAssignment {
+  final int id;
+  final int taskId;
+  final User? user;
+  final String status; // PENDING, ACCEPTED, REJECTED
+  final DateTime timestamp;
+
+  TaskAssignment({
+    required this.id,
+    required this.taskId,
+    this.user,
+    required this.status,
+    required this.timestamp,
+  });
+
+  factory TaskAssignment.fromJson(Map<String, dynamic> json) {
+    return TaskAssignment(
+      id: json['id'],
+      taskId: json['taskId'],
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
+      status: json['status'],
+      timestamp: DateTime.parse(
+        json['updatedAt'],
+      ), // Using updatedAt as latest status time
     );
   }
 }
@@ -93,15 +117,21 @@ class Comment {
   final int id;
   final String content;
   final int taskId;
+  final int? parentId;
   final User? user;
   final DateTime createdAt;
+  final List<Comment>? replies;
+  List<CommentLike> likes;
 
   Comment({
     required this.id,
     required this.content,
     required this.taskId,
+    this.parentId,
     this.user,
     required this.createdAt,
+    this.replies,
+    this.likes = const [],
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
@@ -109,8 +139,35 @@ class Comment {
       id: json['id'],
       content: json['content'],
       taskId: json['taskId'],
+      parentId: json['parentId'],
       user: json['user'] != null ? User.fromJson(json['user']) : null,
       createdAt: DateTime.parse(json['createdAt']),
+      replies: json['replies'] != null
+          ? (json['replies'] as List).map((e) => Comment.fromJson(e)).toList()
+          : null,
+      likes: json['likes'] != null
+          ? (json['likes'] as List).map((e) => CommentLike.fromJson(e)).toList()
+          : [],
+    );
+  }
+}
+
+class CommentLike {
+  final int id;
+  final int userId;
+  final int commentId;
+
+  CommentLike({
+    required this.id,
+    required this.userId,
+    required this.commentId,
+  });
+
+  factory CommentLike.fromJson(Map<String, dynamic> json) {
+    return CommentLike(
+      id: json['id'],
+      userId: json['userId'],
+      commentId: json['commentId'],
     );
   }
 }
