@@ -7,12 +7,14 @@ class WorkspaceDetailScreen extends StatefulWidget {
   final int workspaceId;
   final bool isOwner;
   final String ownerEmail;
+  final String? ownerAvatarUrl;
 
   const WorkspaceDetailScreen({
     super.key,
     required this.workspaceId,
     required this.isOwner,
     required this.ownerEmail,
+    this.ownerAvatarUrl,
   });
 
   @override
@@ -55,7 +57,354 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
     }
   }
 
-  Future<void> _showWorkspaceSettings() async {
+  Future<void> _showAddMemberDialog() async {
+    final emailController = TextEditingController();
+    InviteUser? foundUser;
+    bool isSearching = false;
+    bool isInviting = false;
+    String? errorMessage;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Add Member',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          hintText: 'Enter exact email',
+                          prefixIcon: const Icon(Icons.search),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          errorText: errorMessage,
+                        ),
+                        onSubmitted: (value) async {
+                          if (value.isEmpty) return;
+                          setState(() {
+                            isSearching = true;
+                            errorMessage = null;
+                            foundUser = null;
+                          });
+                          try {
+                            final user = await _workspaceService
+                                .searchUserByEmail(value.trim());
+                            setState(() => foundUser = user);
+                          } catch (e) {
+                            setState(() {
+                              errorMessage = e.toString().replaceAll(
+                                'Exception: ',
+                                '',
+                              );
+                              foundUser = null;
+                            });
+                          } finally {
+                            setState(() => isSearching = false);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () async {
+                        final value = emailController.text;
+                        if (value.isEmpty) return;
+                        setState(() {
+                          isSearching = true;
+                          errorMessage = null;
+                          foundUser = null;
+                        });
+                        try {
+                          final user = await _workspaceService
+                              .searchUserByEmail(value.trim());
+                          setState(() => foundUser = user);
+                        } catch (e) {
+                          setState(() {
+                            errorMessage = e.toString().replaceAll(
+                              'Exception: ',
+                              '',
+                            );
+                            foundUser = null;
+                          });
+                        } finally {
+                          setState(() => isSearching = false);
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_forward_ios),
+                    ),
+                  ],
+                ),
+                if (isSearching)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                if (foundUser != null) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundImage: foundUser!.avatarUrl != null
+                              ? NetworkImage(foundUser!.avatarUrl!)
+                              : null,
+                          child: foundUser!.avatarUrl == null
+                              ? Text(foundUser!.email[0].toUpperCase())
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            foundUser!.email,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: isInviting
+                              ? null
+                              : () async {
+                                  setState(() => isInviting = true);
+                                  try {
+                                    await _workspaceService.inviteUser(
+                                      widget.workspaceId,
+                                      foundUser!.email,
+                                    );
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Invite sent successfully!',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      setState(() => isInviting = false);
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(e.toString()),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: isInviting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Text('Invite'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showWorkspaceSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Workspace Settings',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: const Icon(
+                Icons.person_add_outlined,
+                color: Colors.white,
+              ),
+              title: const Text('Add Member'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddMemberDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: Colors.white),
+              title: const Text('Rename Workspace'),
+              onTap: () {
+                Navigator.pop(context);
+                _showRenameDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.image_outlined, color: Colors.white),
+              title: const Text('Change Avatar'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAvatarPicker();
+              },
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRenameDialog() async {
+    // Determine the current name; if unavailable, default to empty.
+    // Since we don't store the workspace name in state separately,
+    // we might need to fetch it or pass it.
+    // For now we'll just start empty or assume updated from loadData.
+    // NOTE: Ideally we should store workspace details in state.
+    // Assuming workspace name logic needs to be handled.
+    // Let's create a controller but we don't have the current name easily accessible
+    // unless we store the full workspace object.
+
+    // Simplification: Fetch workspace details first or just prompt.
+    // Let's assume user knows the name or we can fetch it.
+    // Actually, let's change _loadData to store the workspace object if possible.
+    // But for now, we'll just show input.
+
+    final controller = TextEditingController();
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Rename Workspace'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter new workspace name',
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.amber),
+            ),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save', style: TextStyle(color: Colors.amber)),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty) {
+      try {
+        await _workspaceService.updateWorkspace(
+          widget.workspaceId,
+          name: newName,
+        );
+        _loadData(); // Reload to reflect changes if name is displayed anywhere
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Workspace renamed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showAvatarPicker() async {
     List<String> avatarPresets = [];
     try {
       avatarPresets = await _workspaceService.getWorkspaceAvatarPresets();
@@ -96,13 +445,8 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Workspace Settings',
+                    'Choose Avatar',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Choose a workspace avatar',
-                    style: TextStyle(color: Colors.white54),
                   ),
                 ],
               ),
@@ -564,17 +908,39 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
               color: Colors.amber.withOpacity(0.2),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Center(
-              child: Text(
-                widget.ownerEmail.isNotEmpty
-                    ? widget.ownerEmail[0].toUpperCase()
-                    : 'O',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber,
-                ),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child:
+                  widget.ownerAvatarUrl != null &&
+                      widget.ownerAvatarUrl!.isNotEmpty
+                  ? Image.network(
+                      widget.ownerAvatarUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Text(
+                          widget.ownerEmail.isNotEmpty
+                              ? widget.ownerEmail[0].toUpperCase()
+                              : 'O',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        widget.ownerEmail.isNotEmpty
+                            ? widget.ownerEmail[0].toUpperCase()
+                            : 'O',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 16),

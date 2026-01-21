@@ -147,3 +147,42 @@ class UserWorkspaces {
     );
   }
 }
+
+class InviteUser {
+  final int id;
+  final String email;
+  final String? avatarUrl;
+
+  InviteUser({required this.id, required this.email, this.avatarUrl});
+
+  factory InviteUser.fromJson(Map<String, dynamic> json) {
+    return InviteUser(
+      id: json['id'],
+      email: json['email'],
+      avatarUrl: json['avatarUrl'],
+    );
+  }
+}
+
+class WorkspaceInvite {
+  final int id;
+  final int workspaceId;
+  final String workspaceName;
+  final String? workspaceAvatarUrl;
+
+  WorkspaceInvite({
+    required this.id,
+    required this.workspaceId,
+    required this.workspaceName,
+    this.workspaceAvatarUrl,
+  });
+
+  factory WorkspaceInvite.fromJson(Map<String, dynamic> json) {
+    return WorkspaceInvite(
+      id: json['id'],
+      workspaceId: json['workspace']['id'] ?? json['workspaceId'],
+      workspaceName: json['workspace']['name'] ?? '',
+      workspaceAvatarUrl: json['workspace']['avatarUrl'],
+    );
+  }
+}

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'notifications_screen.dart';
 import 'package:flutter/services.dart';
 import '../services/workspace_service.dart';
-import '../services/auth_service.dart';
+
 import '../models/workspace.dart';
 import '../config/onboarding_config.dart';
 import 'workspace_detail_screen.dart';
-import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +16,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final WorkspaceService _workspaceService = WorkspaceService();
-  final AuthService _authService = AuthService();
 
   UserWorkspaces? _workspaces;
   bool _isLoading = true;
@@ -248,16 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await _authService.logout();
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -288,15 +277,65 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                  StreamBuilder<int>(
+                    stream: Stream.fromFuture(
+                      _workspaceService.getMyInvites().then(
+                        (invites) => invites.length,
+                      ),
+                    ),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+                      return Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const NotificationsScreen(),
+                                ),
+                              ).then((_) {
+                                // Refresh count when returning
+                                setState(() {});
+                              });
+                            },
+                            tooltip: 'Notifications',
+                          ),
+                          if (count > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  count.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.group_add_outlined),
                     onPressed: _joinWorkspace,
                     tooltip: 'Join Workspace',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.logout_outlined),
-                    onPressed: _logout,
-                    tooltip: 'Logout',
                   ),
                 ],
               ),
@@ -451,6 +490,7 @@ class _HomeScreenState extends State<HomeScreen> {
               workspaceId: workspace.id,
               isOwner: isOwner,
               ownerEmail: workspace.owner.email,
+              ownerAvatarUrl: workspace.owner.avatarUrl,
             ),
           ),
         ).then((_) => _loadWorkspaces());

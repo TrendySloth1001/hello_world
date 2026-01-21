@@ -216,4 +216,64 @@ class WorkspaceService {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
+
+  // ==================== INVITE SYSTEM ====================
+
+  Future<InviteUser> searchUserByEmail(String email) async {
+    final response = await http.get(
+      Uri.parse(
+        'https://qjhcp0ph-3005.inc1.devtunnels.ms/user/search?email=$email',
+      ),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return InviteUser.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<void> inviteUser(int workspaceId, String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$workspaceId/invite'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'email': email}),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<List<WorkspaceInvite>> getMyInvites() async {
+    final response = await http.get(
+      Uri.parse(
+        'https://qjhcp0ph-3005.inc1.devtunnels.ms/workspace/user/invites',
+      ),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List)
+          .map((e) => WorkspaceInvite.fromJson(e))
+          .toList();
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<void> respondToInvite(int requestId, bool accept) async {
+    final response = await http.post(
+      Uri.parse(
+        'https://qjhcp0ph-3005.inc1.devtunnels.ms/workspace/invites/$requestId/respond',
+      ),
+      headers: await _getHeaders(),
+      body: jsonEncode({'accept': accept}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
 }
