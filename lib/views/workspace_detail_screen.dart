@@ -6,11 +6,13 @@ import '../models/workspace.dart';
 class WorkspaceDetailScreen extends StatefulWidget {
   final int workspaceId;
   final bool isOwner;
+  final String ownerEmail;
 
   const WorkspaceDetailScreen({
     super.key,
     required this.workspaceId,
     required this.isOwner,
+    required this.ownerEmail,
   });
 
   @override
@@ -23,8 +25,6 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
   List<WorkspaceMember> _members = [];
   List<JoinRequest> _requests = [];
   bool _isLoading = true;
-  String? _workspaceName;
-  String? _publicId;
 
   @override
   void initState() {
@@ -51,6 +51,122 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
+      }
+    }
+  }
+
+  Future<void> _showWorkspaceSettings() async {
+    List<String> avatarPresets = [];
+    try {
+      avatarPresets = await _workspaceService.getWorkspaceAvatarPresets();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    final selectedAvatar = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Workspace Settings',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Choose a workspace avatar',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: avatarPresets.length,
+                itemBuilder: (context, index) {
+                  final avatar = avatarPresets[index];
+                  return GestureDetector(
+                    onTap: () => Navigator.pop(context, avatar),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(
+                          avatar,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.group, size: 32),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selectedAvatar != null) {
+      try {
+        await _workspaceService.updateWorkspaceAvatar(
+          widget.workspaceId,
+          selectedAvatar,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Workspace avatar updated!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -297,11 +413,15 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                       ),
                     ),
                   ),
-                  if (widget.isOwner)
+                  if (widget.isOwner) ...[
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: _showWorkspaceSettings,
+                      tooltip: 'Settings',
+                    ),
                     IconButton(
                       icon: const Icon(Icons.share_outlined),
                       onPressed: () {
-                        // TODO: Get publicId from API
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Share feature coming soon'),
@@ -310,6 +430,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                       },
                       tooltip: 'Share Invite',
                     ),
+                  ],
                 ],
               ),
             ),
@@ -338,11 +459,21 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                             const SizedBox(height: 24),
                           ],
 
+                          // Owner Section (pinned at top)
+                          _buildSectionHeader(
+                            'CREATOR',
+                            Icons.workspace_premium_outlined,
+                            '1',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildOwnerCard(),
+                          const SizedBox(height: 24),
+
                           // Members Section
                           _buildSectionHeader(
                             'MEMBERS',
                             Icons.group_outlined,
-                            _members.length.toString(),
+                            (_members.length + 1).toString(),
                           ),
                           const SizedBox(height: 12),
                           if (_members.isEmpty)
@@ -409,6 +540,86 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
           Text(
             'Share your invite ID to add members',
             style: TextStyle(color: Colors.white38, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOwnerCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Center(
+              child: Text(
+                widget.ownerEmail.isNotEmpty
+                    ? widget.ownerEmail[0].toUpperCase()
+                    : 'O',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.ownerEmail,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                      SizedBox(width: 4),
+                      Text(
+                        'Creator',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.amber,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -492,16 +703,35 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
             height: 44,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(22),
             ),
-            child: Center(
-              child: Text(
-                member.user.email[0].toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child:
+                  member.user.avatarUrl != null &&
+                      member.user.avatarUrl!.isNotEmpty
+                  ? Image.network(
+                      member.user.avatarUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Text(
+                          member.user.email[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        member.user.email[0].toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 12),

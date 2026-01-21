@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/workspace.dart';
@@ -183,6 +182,34 @@ class WorkspaceService {
     final response = await http.delete(
       Uri.parse('$baseUrl/$workspaceId/members/$userId'),
       headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  // ==================== AVATAR MANAGEMENT ====================
+
+  Future<List<String>> getWorkspaceAvatarPresets() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/avatars'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<String>.from(data['avatars']);
+    } else {
+      throw Exception('Failed to load avatars');
+    }
+  }
+
+  Future<void> updateWorkspaceAvatar(int workspaceId, String avatarUrl) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/$workspaceId/avatar'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'avatarUrl': avatarUrl}),
     );
 
     if (response.statusCode != 200) {

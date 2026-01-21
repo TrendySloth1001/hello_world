@@ -3,18 +3,22 @@ class Workspace {
   final String name;
   final String? description;
   final String publicId;
+  final String? avatarUrl;
   final int ownerId;
   final WorkspaceOwner owner;
   final int memberCount;
+  final List<WorkspaceMember> members;
 
   Workspace({
     required this.id,
     required this.name,
     this.description,
     required this.publicId,
+    this.avatarUrl,
     required this.ownerId,
     required this.owner,
     this.memberCount = 0,
+    this.members = const [],
   });
 
   factory Workspace.fromJson(Map<String, dynamic> json) {
@@ -23,11 +27,17 @@ class Workspace {
       name: json['name'],
       description: json['description'],
       publicId: json['publicId'],
+      avatarUrl: json['avatarUrl'],
       ownerId: json['ownerId'],
       owner: WorkspaceOwner.fromJson(
         json['owner'] ?? {'id': json['ownerId'], 'email': ''},
       ),
       memberCount: json['_count']?['members'] ?? 0,
+      members: json['members'] != null
+          ? (json['members'] as List)
+                .map((m) => WorkspaceMember.fromJson(m))
+                .toList()
+          : [],
     );
   }
 }
@@ -35,11 +45,16 @@ class Workspace {
 class WorkspaceOwner {
   final int id;
   final String email;
+  final String? avatarUrl;
 
-  WorkspaceOwner({required this.id, required this.email});
+  WorkspaceOwner({required this.id, required this.email, this.avatarUrl});
 
   factory WorkspaceOwner.fromJson(Map<String, dynamic> json) {
-    return WorkspaceOwner(id: json['id'], email: json['email'] ?? '');
+    return WorkspaceOwner(
+      id: json['id'],
+      email: json['email'] ?? '',
+      avatarUrl: json['avatarUrl'],
+    );
   }
 }
 
@@ -75,11 +90,16 @@ class WorkspaceMember {
 class MemberUser {
   final int id;
   final String email;
+  final String? avatarUrl;
 
-  MemberUser({required this.id, required this.email});
+  MemberUser({required this.id, required this.email, this.avatarUrl});
 
   factory MemberUser.fromJson(Map<String, dynamic> json) {
-    return MemberUser(id: json['id'], email: json['email']);
+    return MemberUser(
+      id: json['id'],
+      email: json['email'],
+      avatarUrl: json['avatarUrl'],
+    );
   }
 }
 

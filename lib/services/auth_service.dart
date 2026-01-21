@@ -3,8 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth_response.dart';
 
-import 'dart:io';
-
 class AuthService {
   static const String baseUrl = 'https://qjhcp0ph-3005.inc1.devtunnels.ms/auth';
 

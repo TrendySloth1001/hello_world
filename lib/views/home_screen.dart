@@ -450,6 +450,7 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) => WorkspaceDetailScreen(
               workspaceId: workspace.id,
               isOwner: isOwner,
+              ownerEmail: workspace.owner.email,
             ),
           ),
         ).then((_) => _loadWorkspaces());
@@ -468,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header row
             Row(
               children: [
-                // Icon
+                // Avatar/Icon
                 Container(
                   width: 48,
                   height: 48,
@@ -478,17 +479,41 @@ class _HomeScreenState extends State<HomeScreen> {
                         : Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Center(
-                    child: Text(
-                      workspace.name.isNotEmpty
-                          ? workspace.name[0].toUpperCase()
-                          : 'W',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isOwner ? Colors.white : Colors.white70,
-                      ),
-                    ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child:
+                        workspace.avatarUrl != null &&
+                            workspace.avatarUrl!.isNotEmpty
+                        ? Image.network(
+                            workspace.avatarUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Text(
+                                workspace.name.isNotEmpty
+                                    ? workspace.name[0].toUpperCase()
+                                    : 'W',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: isOwner
+                                      ? Colors.white
+                                      : Colors.white70,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              workspace.name.isNotEmpty
+                                  ? workspace.name[0].toUpperCase()
+                                  : 'W',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isOwner ? Colors.white : Colors.white70,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -556,16 +581,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
-            // Footer
+            // Footer with stacked avatars
             const SizedBox(height: 16),
             Row(
               children: [
-                const Icon(
-                  Icons.people_outline,
-                  size: 16,
-                  color: Colors.white38,
+                // Stacked avatars
+                SizedBox(
+                  width: _calculateStackWidth(workspace.memberCount),
+                  height: 28,
+                  child: Stack(children: _buildStackedAvatars(workspace)),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Text(
                   '${workspace.memberCount} member${workspace.memberCount != 1 ? 's' : ''}',
                   style: const TextStyle(color: Colors.white38, fontSize: 13),
@@ -587,5 +613,140 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  double _calculateStackWidth(int memberCount) {
+    final displayCount = memberCount.clamp(0, 4);
+    final hasMore = memberCount > 4;
+    // Each avatar is 28px, overlap by 10px
+    final avatarWidth =
+        displayCount * 28.0 -
+        (displayCount > 1 ? (displayCount - 1) * 10.0 : 0);
+    return hasMore
+        ? avatarWidth + 18
+        : avatarWidth; // +18 for the "+n" indicator
+  }
+
+  List<Widget> _buildStackedAvatars(Workspace workspace) {
+    final memberCount = workspace.memberCount;
+    if (memberCount == 0) {
+      return [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.person_outline,
+            size: 16,
+            color: Colors.white38,
+          ),
+        ),
+      ];
+    }
+
+    final displayCount = memberCount.clamp(0, 4);
+    final hasMore = memberCount > 4;
+    final remaining = memberCount - 4;
+
+    List<Widget> avatars = [];
+
+    // Generate avatar circles using actual member avatars
+    for (int i = 0; i < displayCount; i++) {
+      // First avatar is owner, rest are from members list
+      String? avatarUrl;
+      String fallbackLetter;
+
+      if (i == 0) {
+        // Owner avatar
+        avatarUrl = workspace.owner.avatarUrl;
+        fallbackLetter = workspace.owner.email.isNotEmpty
+            ? workspace.owner.email[0].toUpperCase()
+            : 'O';
+      } else if (i - 1 < workspace.members.length) {
+        // Member avatar (offset by 1 since owner is first)
+        avatarUrl = workspace.members[i - 1].user.avatarUrl;
+        fallbackLetter = workspace.members[i - 1].user.email.isNotEmpty
+            ? workspace.members[i - 1].user.email[0].toUpperCase()
+            : 'M';
+      } else {
+        avatarUrl = null;
+        fallbackLetter = '${i + 1}';
+      }
+
+      avatars.add(
+        Positioned(
+          left: i * 18.0,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: i == 0 ? Colors.amber.withOpacity(0.3) : Colors.white12,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF111111), width: 2),
+            ),
+            child: ClipOval(
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Text(
+                          fallbackLetter,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: i == 0 ? Colors.amber : Colors.white54,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        fallbackLetter,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: i == 0 ? Colors.amber : Colors.white54,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Add "+n" indicator if more than 4 members
+    if (hasMore) {
+      avatars.add(
+        Positioned(
+          left: displayCount * 18.0,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF111111), width: 2),
+            ),
+            child: Center(
+              child: Text(
+                '+$remaining',
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return avatars;
   }
 }

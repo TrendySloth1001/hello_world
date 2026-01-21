@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'views/onboarding_screen.dart';
-import 'views/home_screen.dart';
+import 'views/main_shell.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
@@ -58,6 +58,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    return _isLoggedIn ? const HomeScreen() : const OnboardingScreen();
+    return _isLoggedIn ? const MainShell() : const OnboardingScreen();
   }
 }

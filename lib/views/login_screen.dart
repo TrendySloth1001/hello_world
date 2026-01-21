@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:hello_world/views/home_screen.dart';
 import '../controllers/auth_controller.dart';
 import '../config/onboarding_config.dart';
-import 'home_screen.dart';
+import 'main_shell.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(builder: (context) => const MainShell()),
           );
         }
       }
@@ -74,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (context) => const MainShell()),
         );
       }
     } catch (e) {
