@@ -6,12 +6,7 @@ import '../models/auth_response.dart';
 import 'dart:io';
 
 class AuthService {
-  static String get baseUrl {
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3005/auth';
-    }
-    return 'http://localhost:3005/auth';
-  }
+  static const String baseUrl = 'https://qjhcp0ph-3005.inc1.devtunnels.ms/auth';
 
   Future<AuthResponse> signInWithGoogle(String? idToken) async {
     final response = await http.post(

@@ -31,6 +31,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // Sign out first to force account picker when multiple accounts exist
+      await _googleSignIn.signOut();
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser != null) {
         final GoogleSignInAuthentication googleAuth =
