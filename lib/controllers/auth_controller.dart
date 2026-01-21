@@ -4,6 +4,10 @@ import '../models/auth_response.dart';
 class AuthController {
   final AuthService _authService = AuthService();
 
+  Future<AuthResponse> signInWithGoogle(String? idToken) async {
+    return await _authService.signInWithGoogle(idToken);
+  }
+
   Future<AuthResponse> login(String email, String password) async {
     return await _authService.login(email, password);
   }

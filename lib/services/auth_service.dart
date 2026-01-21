@@ -3,8 +3,31 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth_response.dart';
 
+import 'dart:io';
+
 class AuthService {
-  static const String baseUrl = 'http://localhost:3005/auth';
+  static String get baseUrl {
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:3005/auth';
+    }
+    return 'http://localhost:3005/auth';
+  }
+
+  Future<AuthResponse> signInWithGoogle(String? idToken) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/google'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+
+    if (response.statusCode == 200) {
+      final authResponse = AuthResponse.fromJson(jsonDecode(response.body));
+      await _saveToken(authResponse.token);
+      return authResponse;
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
 
   Future<AuthResponse> signup(String email, String password) async {
     final response = await http.post(

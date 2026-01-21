@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "904526063770",
+    "project_id": "titanium-campus",
+    "storage_bucket": "titanium-campus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:904526063770:android:61aeea70526676ab7ed723",
+        "android_client_info": {
+          "package_name": "com.example.hello_world"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDN3I4u94zkuNt2M1TTaJDf7shUnxYI4KI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

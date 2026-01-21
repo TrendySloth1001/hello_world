@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../controllers/auth_controller.dart';
 import 'signup_screen.dart';
 
@@ -13,8 +14,48 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authController = AuthController();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId:
+        '452121335838-prdjordjglcbjroi476amr6990ipft7m.apps.googleusercontent.com',
+  );
+
   String _errorMessage = '';
   bool _isLoading = false;
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser != null) {
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+        final response = await _authController.signInWithGoogle(
+          googleAuth.idToken,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Welcome, ${response.user['email']}!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   Future<void> _login() async {
     setState(() {
@@ -72,7 +113,24 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
             _isLoading
                 ? const CircularProgressIndicator()
-                : ElevatedButton(onPressed: _login, child: const Text('Login')),
+                : Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _login,
+                        child: const Text('Login'),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        onPressed: _handleGoogleSignIn,
+                        icon: const Icon(Icons.login),
+                        label: const Text('Sign in with Google'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
             TextButton(
               onPressed: () {
                 Navigator.push(
