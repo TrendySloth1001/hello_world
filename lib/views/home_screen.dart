@@ -360,6 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'home_fab',
         onPressed: _createWorkspace,
         backgroundColor: Colors.transparent.withOpacity(0.4),
         foregroundColor: Colors.white,

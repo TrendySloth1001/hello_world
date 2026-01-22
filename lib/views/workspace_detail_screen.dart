@@ -339,6 +339,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'workspace_detail_fab',
         onPressed: () async {
           final result = await showModalBottomSheet(
             context: context,

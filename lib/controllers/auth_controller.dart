@@ -19,4 +19,8 @@ class AuthController {
   Future<void> logout() async {
     await _authService.logout();
   }
+
+  Future<int?> getUserId() async {
+    return await _authService.getUserId();
+  }
 }

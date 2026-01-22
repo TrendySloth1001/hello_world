@@ -18,6 +18,7 @@ class AuthService {
     if (response.statusCode == 200) {
       final authResponse = AuthResponse.fromJson(jsonDecode(response.body));
       await _saveToken(authResponse.token);
+      await _saveUserId(authResponse.user['id']);
       return authResponse;
     } else {
       throw Exception(jsonDecode(response.body)['message']);
@@ -34,6 +35,7 @@ class AuthService {
     if (response.statusCode == 201) {
       final authResponse = AuthResponse.fromJson(jsonDecode(response.body));
       await _saveToken(authResponse.token);
+      await _saveUserId(authResponse.user['id']);
       return authResponse;
     } else {
       throw Exception(jsonDecode(response.body)['message']);
@@ -50,10 +52,17 @@ class AuthService {
     if (response.statusCode == 200) {
       final authResponse = AuthResponse.fromJson(jsonDecode(response.body));
       await _saveToken(authResponse.token);
+      await _saveUserId(authResponse.user['id']);
       return authResponse;
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('userId');
   }
 
   Future<void> _saveToken(String token) async {
@@ -61,13 +70,18 @@ class AuthService {
     await prefs.setString('token', token);
   }
 
+  Future<void> _saveUserId(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('userId', id);
+  }
+
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  Future<void> logout() async {
+  Future<int?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
+    return prefs.getInt('userId');
   }
 }
