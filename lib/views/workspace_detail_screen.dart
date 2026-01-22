@@ -351,95 +351,28 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
       itemCount: _tasks.length,
       itemBuilder: (context, index) {
         final task = _tasks[index];
+        final isDone = task.status == 'DONE';
+        final isOverdue =
+            task.dueDate != null &&
+            task.dueDate!.isBefore(DateTime.now()) &&
+            !isDone;
+
+        // Priority Color
+        Color priorityColor = Colors.blue;
+        if (task.priority == 'HIGH') priorityColor = Colors.red;
+        if (task.priority == 'MEDIUM') priorityColor = Colors.orange;
+
         return Card(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: const Color(0xFF1E1E1E),
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1,
+            ),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            title: Text(
-              task.title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (task.description != null && task.description!.isNotEmpty)
-                  Text(
-                    task.description!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white54),
-                  ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(
-                          task.status,
-                        ).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _getStatusColor(task.status),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        task.status,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: _getStatusColor(task.status),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (task.assignments != null &&
-                        task.assignments!.isNotEmpty)
-                      SizedBox(
-                        height: 20,
-                        width: 60, // Limit width for stack
-                        child: Stack(
-                          children: List.generate(
-                            task.assignments!.length > 3
-                                ? 3
-                                : task.assignments!.length,
-                            (i) {
-                              final user = task.assignments![i].user;
-                              return Positioned(
-                                left: i * 14.0,
-                                child: CircleAvatar(
-                                  radius: 8,
-                                  backgroundImage: user?.avatarUrl != null
-                                      ? NetworkImage(user!.avatarUrl!)
-                                      : null,
-                                  child: user?.avatarUrl == null
-                                      ? Text(
-                                          user?.email[0].toUpperCase() ?? 'U',
-                                          style: const TextStyle(fontSize: 8),
-                                        )
-                                      : null,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+          child: InkWell(
             onTap: () async {
               await Navigator.push(
                 context,
@@ -452,10 +385,190 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
               );
               _loadData(); // Refresh on return
             },
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Priority Strip
+                  Container(
+                    width: 4,
+                    decoration: BoxDecoration(
+                      color: priorityColor,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header: Title and Avatar
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  task.title,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDone
+                                        ? Colors.white54
+                                        : Colors.white,
+                                    decoration: isDone
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                              if (task.assignments != null &&
+                                  task.assignments!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 12),
+                                  child: CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: Colors.grey[800],
+                                    backgroundImage:
+                                        task.assignments![0].user?.avatarUrl !=
+                                            null
+                                        ? NetworkImage(
+                                            task
+                                                .assignments![0]
+                                                .user!
+                                                .avatarUrl!,
+                                          )
+                                        : null,
+                                    child:
+                                        task.assignments![0].user?.avatarUrl ==
+                                            null
+                                        ? Text(
+                                            task.assignments![0].user?.email[0]
+                                                    .toUpperCase() ??
+                                                'U',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          // Description
+                          if (task.description != null &&
+                              task.description!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                task.description!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          // Footer: Date, Comments, Priority Badge
+                          Row(
+                            children: [
+                              if (task.dueDate != null) ...[
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: isOverdue
+                                      ? Colors.red
+                                      : Colors.grey[500],
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _formatDate(task.dueDate!),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isOverdue
+                                        ? Colors.red
+                                        : Colors.grey[500],
+                                    fontWeight: isOverdue
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                              ],
+                              // Comments
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                size: 14,
+                                color: task.commentCount > 0
+                                    ? Colors.amber
+                                    : Colors.grey[500],
+                              ),
+                              if (task.commentCount > 0) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${task.commentCount}',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              // Priority Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: priorityColor.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: priorityColor.withValues(alpha: 0.5),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  task.priority,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: priorityColor,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final checkDate = DateTime(date.year, date.month, date.day);
+
+    if (checkDate == today) return 'Today';
+    if (checkDate == tomorrow) return 'Tomorrow';
+    return '${date.day}/${date.month}';
   }
 
   Future<void> _showAddMemberDialog() async {
@@ -916,16 +1029,5 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         ],
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'DONE':
-        return Colors.green;
-      case 'IN_PROGRESS':
-        return Colors.blue;
-      default:
-        return Colors.amber;
-    }
   }
 }
