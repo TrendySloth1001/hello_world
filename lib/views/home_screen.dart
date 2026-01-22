@@ -493,6 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isOwner: isOwner,
               ownerEmail: workspace.owner.email,
               ownerAvatarUrl: workspace.owner.avatarUrl,
+              workspaceName: workspace.name,
             ),
           ),
         ).then((_) => _loadWorkspaces());

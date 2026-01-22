@@ -14,6 +14,7 @@ class WorkspaceDetailScreen extends StatefulWidget {
   final bool isOwner;
   final String ownerEmail;
   final String? ownerAvatarUrl;
+  final String workspaceName;
 
   const WorkspaceDetailScreen({
     super.key,
@@ -21,6 +22,7 @@ class WorkspaceDetailScreen extends StatefulWidget {
     required this.isOwner,
     required this.ownerEmail,
     this.ownerAvatarUrl,
+    required this.workspaceName,
   });
 
   @override
@@ -305,26 +307,31 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverAppBar(
-            title: const Text('Workspace Details'),
-            pinned: true,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.people_outline),
-                onPressed: _showMembersSheet,
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: _showWorkspaceSettings,
-              ),
-            ],
-          ),
-        ],
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildTasksList(),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        backgroundColor: Colors.black,
+        color: Colors.white,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverAppBar(
+              title: Text(widget.workspaceName), // Use actual name
+              pinned: true,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.people_outline),
+                  onPressed: _showMembersSheet,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: _showWorkspaceSettings,
+                ),
+              ],
+            ),
+          ],
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildTasksList(),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {

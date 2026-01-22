@@ -30,6 +30,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isLoadingComments = false;
   bool _isSendingComment = false;
   bool _showAllHistory = false;
+  bool _showAllComments = false;
+  bool _isPeopleExpanded = false;
 
   // Pagination
   int _currentPage = 1;
@@ -458,50 +460,92 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                SliverToBoxAdapter(child: _buildTaskHeader()),
-                SliverToBoxAdapter(child: _buildAssignmentSection()),
-                SliverToBoxAdapter(
-                  child: _buildSubTasksSection(),
-                ), // SubTasks Section
-                SliverToBoxAdapter(child: _buildActivityLog()),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Comments',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      body: RefreshIndicator(
+        onRefresh: _loadTask,
+        backgroundColor: Colors.black,
+        color: Colors.white,
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  SliverToBoxAdapter(child: _buildTaskHeader()),
+                  SliverToBoxAdapter(child: _buildAssignmentSection()),
+                  SliverToBoxAdapter(
+                    child: _buildSubTasksSection(),
+                  ), // SubTasks Section
+                  SliverToBoxAdapter(child: _buildActivityLog()),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 16.0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Comments',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (_comments.length > 3)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _showAllComments = !_showAllComments;
+                                });
+                              },
+                              child: Text(
+                                _showAllComments ? 'View Less' : 'View More',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      if (index == _comments.length) {
-                        return _isLoadingComments
-                            ? const Center(child: CircularProgressIndicator())
-                            : const SizedBox.shrink();
-                      }
-                      return _buildCommentItem(_comments[index]);
-                    },
-                    childCount: _comments.length + (_isLoadingComments ? 1 : 0),
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        // Determine subset
+                        final displayCount = _showAllComments
+                            ? _comments.length
+                            : (_comments.length > 3 ? 3 : _comments.length);
+
+                        if (index == displayCount) {
+                          // Loader if needed, or empty
+                          return _isLoadingComments && _showAllComments
+                              ? const Center(child: CircularProgressIndicator())
+                              : const SizedBox.shrink();
+                        }
+                        // Safety check
+                        if (index >= displayCount)
+                          return const SizedBox.shrink();
+
+                        return _buildCommentItem(_comments[index]);
+                      },
+                      childCount:
+                          (_showAllComments
+                              ? _comments.length
+                              : (_comments.length > 3 ? 3 : _comments.length)) +
+                          ((_isLoadingComments && _showAllComments) ? 1 : 0),
+                    ),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                ],
+              ),
             ),
-          ),
-          _buildInputArea(),
-        ],
+            _buildInputArea(),
+          ],
+        ),
       ),
     );
   }
@@ -680,105 +724,127 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'People',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Assignees
-          if (assignees.isNotEmpty) ...[
-            const Text(
-              'Assignees',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            ...assignees.map((a) => _buildPersonItem(a)).toList(),
-            const SizedBox(height: 16),
-          ],
-
-          // Collaborators
-          if (collaborators.isNotEmpty) ...[
-            const Text(
-              'Collaborators',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            ...collaborators.map((a) => _buildPersonItem(a)).toList(),
-            const SizedBox(height: 16),
-          ],
-
-          // Pending Requests (Only visible to Manager)
-          if (canManage && pendingRequests.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pending Requests',
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...pendingRequests.map((a) => _buildRequestItem(a)).toList(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Actions for Me
-          if (isAssignedToMe &&
-              myAssignment!.status == 'PENDING' &&
-              myAssignment.role == 'ASSIGNEE') ...[
-            // Pending Assignment Acceptance
-            _buildPendingAssignmentMsg(),
-          ] else if (!isAssignedToMe) ...[
-            // Contribute Button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _requestContribution,
-                icon: const Icon(Icons.handshake_outlined),
-                label: const Text('Request to Contribute'),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.blue),
-              ),
-            ),
-          ] else if (isAssignedToMe &&
-              myAssignment!.status == 'PENDING' &&
-              myAssignment.role == 'COLLABORATOR') ...[
-            const Text(
-              'Contribution request pending...',
-              style: TextStyle(color: Colors.orange),
-            ),
-          ],
-
-          // Claim Open Task
-          if (_task!.isOpen && !isAssignedToMe) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _claimTask,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'People',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                child: const Text('Claim Task'),
               ),
-            ),
+              IconButton(
+                icon: Icon(
+                  _isPeopleExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPeopleExpanded = !_isPeopleExpanded;
+                  });
+                },
+              ),
+            ],
+          ),
+          if (_isPeopleExpanded) ...[
+            const SizedBox(height: 12),
+
+            // Assignees
+            if (assignees.isNotEmpty) ...[
+              const Text(
+                'Assignees',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              ...assignees.map((a) => _buildPersonItem(a)).toList(),
+              const SizedBox(height: 16),
+            ],
+
+            // Collaborators
+            if (collaborators.isNotEmpty) ...[
+              const Text(
+                'Collaborators',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              ...collaborators.map((a) => _buildPersonItem(a)).toList(),
+              const SizedBox(height: 16),
+            ],
+
+            // Pending Requests (Only visible to Manager)
+            if (canManage && pendingRequests.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Pending Requests',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...pendingRequests
+                        .map((a) => _buildRequestItem(a))
+                        .toList(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Actions for Me
+            if (isAssignedToMe &&
+                myAssignment!.status == 'PENDING' &&
+                myAssignment.role == 'ASSIGNEE') ...[
+              // Pending Assignment Acceptance
+              _buildPendingAssignmentMsg(),
+            ] else if (!isAssignedToMe) ...[
+              // Contribute Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _requestContribution,
+                  icon: const Icon(Icons.handshake_outlined),
+                  label: const Text('Request to Contribute'),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.blue),
+                ),
+              ),
+            ] else if (isAssignedToMe &&
+                myAssignment!.status == 'PENDING' &&
+                myAssignment.role == 'COLLABORATOR') ...[
+              const Text(
+                'Contribution request pending...',
+                style: TextStyle(color: Colors.orange),
+              ),
+            ],
+
+            // Claim Open Task
+            if (_task!.isOpen && !isAssignedToMe) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _claimTask,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Claim Task'),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -1110,38 +1176,74 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: displayActivities.length,
             itemBuilder: (context, index) {
               final activity = displayActivities[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+              final isLast = index == displayActivities.length - 1;
+              return IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.circle, size: 8, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
+                    Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.grey[800],
+                          backgroundImage: activity.user?.avatarUrl != null
+                              ? NetworkImage(activity.user!.avatarUrl!)
+                              : null,
+                          child: activity.user?.avatarUrl == null
+                              ? Text(
+                                  activity.user?.email[0].toUpperCase() ?? 'U',
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        if (!isLast)
+                          Expanded(
+                            child: Container(
+                              width: 1,
+                              color: Colors.white12,
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                            ),
                           ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            TextSpan(
-                              text: activity.user?.email ?? 'Unknown',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white70,
+                            RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: activity.user?.email ?? 'Unknown',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  TextSpan(text: ' ${activity.action}'),
+                                ],
                               ),
                             ),
-                            TextSpan(text: ' ${activity.action} '),
-                            TextSpan(
-                              text: DateFormat(
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat(
                                 'MMM d, h:mm a',
                               ).format(activity.timestamp.toLocal()),
                               style: TextStyle(
