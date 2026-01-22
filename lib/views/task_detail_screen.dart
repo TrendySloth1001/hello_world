@@ -23,15 +23,43 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final _scrollController = ScrollController();
 
   Task? _task;
-  bool _isLoading = true;
+  List<Comment> _comments = [];
+  bool _isLoadingTask = true;
+  bool _isLoadingComments = false;
   bool _isSendingComment = false;
-  int? _replyingToCommentId; // ID of the comment being replied to
-  String? _replyingToUserEmail; // Email for display in input
+
+  // Pagination
+  int _currentPage = 1;
+  int _totalPages = 1;
+  static const int _limit = 20;
+
+  int? _replyingToCommentId;
+  String? _replyingToUserEmail;
 
   @override
   void initState() {
     super.initState();
     _loadTask();
+    _loadComments(reset: true);
+
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingComments && _currentPage < _totalPages) {
+        _loadComments();
+      }
+    }
   }
 
   Future<void> _loadTask() async {
@@ -40,15 +68,61 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         setState(() {
           _task = task;
-          _isLoading = false;
+          _isLoadingTask = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isLoadingTask = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to load task: $e')));
+      }
+    }
+  }
+
+  Future<void> _loadComments({bool reset = false}) async {
+    if (_isLoadingComments) return;
+
+    if (reset) {
+      setState(() {
+        _comments = [];
+        _currentPage = 1;
+        _isLoadingComments = true;
+      });
+    } else {
+      setState(() => _isLoadingComments = true);
+    }
+
+    try {
+      final result = await _taskService.getComments(
+        widget.taskId,
+        page: _currentPage,
+        limit: _limit,
+      );
+
+      final newComments = (result['comments'] as List)
+          .map((e) => Comment.fromJson(e))
+          .toList();
+
+      final meta = result['meta'];
+
+      if (mounted) {
+        setState(() {
+          if (reset) {
+            _comments = newComments;
+          } else {
+            _comments.addAll(newComments);
+          }
+          _totalPages = meta['totalPages'];
+          if (_currentPage < _totalPages) _currentPage++;
+          _isLoadingComments = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingComments = false);
+        // Silent fail or toast
       }
     }
   }
@@ -68,15 +142,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _replyingToCommentId = null;
         _replyingToUserEmail = null;
       });
-      await _loadTask(); // Refresh to show new comment
-      // Scroll to bottom
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+
+      // Refresh comments from scratch to show the new one at the top
+      await _loadComments(reset: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -90,57 +158,33 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Future<void> _toggleLike(int commentId) async {
     // Optimistic Update
-    setState(() {
-      _applyOptimisticLike(_task!.comments!, commentId, widget.currentUserId);
-    });
+    final index = _comments.indexWhere((c) => c.id == commentId);
+    if (index != -1) {
+      setState(() {
+        final isLiked = _comments[index].likes.any(
+          (l) => l.userId == widget.currentUserId,
+        );
+        if (isLiked) {
+          _comments[index].likes.removeWhere(
+            (l) => l.userId == widget.currentUserId,
+          );
+        } else {
+          _comments[index].likes.add(
+            CommentLike(
+              id: 0,
+              userId: widget.currentUserId,
+              commentId: commentId,
+            ),
+          );
+        }
+      });
+    }
 
     try {
       await _taskService.toggleCommentLike(commentId);
-      // We could reload to sync exact server state, but optimistic is reliable enough for likes
-      // _loadTask();
     } catch (e) {
-      // Revert if failed
-      if (mounted) {
-        setState(() {
-          _applyOptimisticLike(
-            _task!.comments!,
-            commentId,
-            widget.currentUserId,
-          );
-        });
-        // Optional: Show error only if it's NOT a unique constraint failure (which implies race/double click success)
-        if (!e.toString().contains('Unique constraint')) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to update like: $e')));
-        }
-      }
+      _loadComments(reset: true); // Revert on failure
     }
-  }
-
-  bool _applyOptimisticLike(List<Comment> comments, int targetId, int userId) {
-    for (var comment in comments) {
-      if (comment.id == targetId) {
-        final existingLikeIndex =
-            comment.likes?.indexWhere((l) => l.userId == userId) ?? -1;
-        if (existingLikeIndex != -1) {
-          // Unlike
-          comment.likes!.removeAt(existingLikeIndex);
-        } else {
-          // Like
-          comment.likes ??= [];
-          comment.likes!.add(
-            CommentLike(id: 0, userId: userId, commentId: targetId),
-          );
-        }
-        return true;
-      }
-      if (comment.replies != null) {
-        if (_applyOptimisticLike(comment.replies!, targetId, userId))
-          return true;
-      }
-    }
-    return false;
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -160,23 +204,62 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       String? reason;
       if (status == 'REJECTED') {
-        reason = await _showRejectDialog();
-        if (reason == null) return; // Cancelled
+        // Show dialog
+        final controller = TextEditingController();
+        reason = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E1E),
+            title: const Text(
+              'Reject Task',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Reason for rejection...',
+                hintStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (controller.text.trim().isNotEmpty) {
+                    Navigator.pop(context, controller.text.trim());
+                  }
+                },
+                child: const Text(
+                  'Reject',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (reason == null) return;
       }
+
       await _taskService.respondToTask(
         widget.taskId,
         status,
         rejectionReason: reason,
       );
 
+      // Add comment if rejected
       if (status == 'REJECTED' && reason != null) {
-        // Optionally add a comment automatically, though backend might not do it,
-        // the previous code did it on frontend.
-        // Let's keep the manual comment add if desired, or rely on backend activity logging.
-        // Previous code: await _taskService.addComment(widget.taskId, "Rejected task: $reason");
-        // Backend now stores reason in assignment.
-        // Let's explicitly add a comment so it's visible in chat too.
         await _taskService.addComment(widget.taskId, "Rejected task: $reason");
+        _loadComments(reset: true);
       }
 
       _loadTask();
@@ -218,51 +301,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  Future<String?> _showRejectDialog() async {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Reject Task', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Reason for rejection...',
-            hintStyle: TextStyle(color: Colors.white54),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                Navigator.pop(context, controller.text.trim());
-              }
-            },
-            child: const Text('Reject', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _startReply(int commentId, String userEmail) {
     setState(() {
       _replyingToCommentId = commentId;
       _replyingToUserEmail = userEmail;
     });
-    // Focus input
   }
 
   void _cancelReply() {
@@ -272,9 +315,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
+  Color _getPriorityColor(String priority) {
+    if (priority == 'HIGH') return Colors.red;
+    if (priority == 'MEDIUM') return Colors.orange;
+    return Colors.blue;
+  }
+
+  Color _getStatusColor(String status) {
+    if (status == 'DONE') return Colors.green;
+    if (status == 'IN_PROGRESS') return Colors.blue;
+    return Colors.grey;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoadingTask) {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(child: CircularProgressIndicator()),
@@ -290,31 +345,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
     }
 
-    // Find current user's assignment
-    final myAssignment = _task!.assignments?.firstWhere(
-      (a) => a.user?.id == widget.currentUserId,
-      orElse: () => TaskAssignment(
-        id: 0,
-        taskId: 0,
-        status: 'NONE',
-        timestamp: DateTime.now(),
-      ),
-    );
-    // Note: The orElse return is a dummy and won't have a user, so be careful checking `myAssignment.user`
-
-    final isAssignedToMe =
-        myAssignment != null &&
-        myAssignment.status != 'NONE' &&
-        myAssignment.user != null;
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text('Task Details'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -349,316 +385,430 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
+            child: CustomScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Status Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(_task!.status).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _getStatusColor(_task!.status)),
-                    ),
+              slivers: [
+                SliverToBoxAdapter(child: _buildTaskHeader()),
+                SliverToBoxAdapter(child: _buildAssignmentSection()),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      _task!.status.replaceAll('_', ' '),
-                      style: TextStyle(
-                        color: _getStatusColor(_task!.status),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _task!.title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  if (_task!.description != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _task!.description!,
+                      'Comments', // Removed count as it might be misleading with pagination
                       style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  // Meta Data
-                  Row(
-                    children: [
-                      _buildMetaItem(
-                        Icons.flag_outlined,
-                        'Priority',
-                        _task!.priority,
-                      ),
-                      const SizedBox(width: 24),
-                      if (_task!.dueDate != null)
-                        _buildMetaItem(
-                          Icons.calendar_today_outlined,
-                          'Due Date',
-                          DateFormat('MMM d, y').format(_task!.dueDate!),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Assignments List
-                  const Text(
-                    'Assignees',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  if (_task!.assignments != null &&
-                      _task!.assignments!.isNotEmpty)
-                    ..._task!.assignments!.map(
-                      (assignment) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundImage:
-                                  assignment.user?.avatarUrl != null
-                                  ? NetworkImage(assignment.user!.avatarUrl!)
-                                  : null,
-                              child: assignment.user?.avatarUrl == null
-                                  ? Text(
-                                      assignment.user?.email[0].toUpperCase() ??
-                                          'U',
-                                      style: const TextStyle(fontSize: 10),
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              assignment.user?.email ?? 'Unknown',
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                            const Spacer(),
-                            _buildAssignmentStatusBadge(assignment.status),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    const Text(
-                      'No assignees',
-                      style: TextStyle(color: Colors.white38),
-                    ),
-
-                  const SizedBox(height: 32),
-                  // Assignment Approval (Only for me if Pending)
-                  if (isAssignedToMe && myAssignment!.status == 'PENDING') ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.amber.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Task Assigned to You',
-                            style: TextStyle(
-                              color: Colors.amber,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Please accept or reject this task assignment.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => _respondToTask('REJECTED'),
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                      color: Colors.red.withOpacity(0.5),
-                                    ),
-                                    foregroundColor: Colors.red,
-                                  ),
-                                  child: const Text('Reject'),
+                ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index == _comments.length) {
+                        return _isLoadingComments
+                            ? const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () => _respondToTask('ACCEPTED'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                  child: const Text('Accept'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-
-                  // Claim Task Section
-                  if (_task!.isOpen) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Open Task',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'This task is open for anyone to claim.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _claimTask,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Claim Task'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                  const Divider(color: Colors.white10),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Comments',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                              )
+                            : const SizedBox.shrink();
+                      }
+                      return _buildCommentItem(_comments[index]);
+                    },
+                    childCount: _comments.length + (_isLoadingComments ? 1 : 0),
                   ),
-                  const SizedBox(height: 16),
-                  if (_task!.comments != null && _task!.comments!.isNotEmpty)
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _task!.comments!.length,
-                      itemBuilder: (context, index) {
-                        return _buildCommentTree(_task!.comments![index]);
-                      },
-                    )
-                  else
-                    const Text(
-                      'No comments yet.',
-                      style: TextStyle(color: Colors.white38),
-                    ),
-                ],
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 80),
+                ), // Space for input
+              ],
+            ),
+          ),
+          _buildInputArea(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status Badge
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getStatusColor(_task!.status).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _getStatusColor(_task!.status)),
+            ),
+            child: Text(
+              _task!.status.replaceAll('_', ' '),
+              style: TextStyle(
+                color: _getStatusColor(_task!.status),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          // Comment Input
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E1E1E),
-              border: Border(top: BorderSide(color: Colors.white10)),
-            ),
-            child: Column(
-              children: [
-                if (_replyingToUserEmail != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Replying to $_replyingToUserEmail',
-                          style: const TextStyle(
-                            color: Colors.amber,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const Spacer(),
-                        InkWell(
-                          onTap: _cancelReply,
-                          child: const Icon(
-                            Icons.close,
-                            size: 16,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      ],
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.grey[800],
+                backgroundImage: _task!.createdBy?.avatarUrl != null
+                    ? NetworkImage(_task!.createdBy!.avatarUrl!)
+                    : null,
+                child: _task!.createdBy?.avatarUrl == null
+                    ? Text(_task!.createdBy?.email[0].toUpperCase() ?? 'U')
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _task!.createdBy?.email ?? 'Unknown User',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
                   ),
+                  Text(
+                    DateFormat(
+                      'MMM d, yyyy • h:mm a',
+                    ).format(_task!.createdAt.toLocal()),
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getPriorityColor(_task!.priority).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _getPriorityColor(_task!.priority)),
+                ),
+                child: Text(
+                  _task!.priority,
+                  style: TextStyle(
+                    color: _getPriorityColor(_task!.priority),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _task!.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (_task!.description != null && _task!.description!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _task!.description!,
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssignmentSection() {
+    // Logic for showing assignment status / buttons
+    final myAssignment = _task!.assignments?.firstWhere(
+      (a) => a.user?.id == widget.currentUserId,
+      orElse: () => TaskAssignment(
+        id: 0,
+        taskId: 0,
+        status: 'NONE',
+        timestamp: DateTime.now(),
+      ),
+    );
+    // Be careful with the dummy object having no user
+    final isAssignedToMe =
+        myAssignment != null &&
+        myAssignment.status != 'NONE' &&
+        (myAssignment.id != 0);
+
+    // 1. Pending Assignment Actions
+    if (isAssignedToMe && myAssignment?.status == 'PENDING') {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.amber.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.amber.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Task Assigned to You',
+              style: TextStyle(
+                color: Colors.amber,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please accept or reject this assignment.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _respondToTask('REJECTED'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                      foregroundColor: Colors.red,
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _respondToTask('ACCEPTED'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 2. Open Task Actions
+    if (_task!.isOpen) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'Open Task',
+              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This task is open for anyone to claim.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _claimTask,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Claim Task'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildCommentItem(Comment comment) {
+    final isLiked = comment.likes.any((l) => l.userId == widget.currentUserId);
+    final likeCount = comment.likes.length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.grey[800],
+            backgroundImage: comment.user?.avatarUrl != null
+                ? NetworkImage(comment.user!.avatarUrl!)
+                : null,
+            child: comment.user?.avatarUrl == null
+                ? Text(comment.user?.email[0].toUpperCase() ?? 'U')
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _commentController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Add a comment...',
-                          hintStyle: const TextStyle(color: Colors.white38),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
+                    Text(
+                      comment.user?.email ?? 'Unknown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _isSendingComment ? null : _addComment,
-                      icon: _isSendingComment
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send, color: Colors.amber),
+                    Text(
+                      _getTimeAgo(comment.createdAt),
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  comment.content,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => _toggleLike(comment.id),
+                      child: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: isLiked ? Colors.red : Colors.grey[500],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    if (likeCount > 0)
+                      Text(
+                        '$likeCount',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      ),
+
+                    const SizedBox(width: 24),
+
+                    InkWell(
+                      onTap: () =>
+                          _startReply(comment.id, comment.user?.email ?? ''),
+                      child: Text(
+                        'Reply',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (comment.replies != null && comment.replies!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Column(
+                      children: comment.replies!
+                          .map((reply) => _buildReplyItem(reply))
+                          .toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyItem(Comment reply) {
+    final isLiked = reply.likes.any((l) => l.userId == widget.currentUserId);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundColor: Colors.grey[800],
+            backgroundImage: reply.user?.avatarUrl != null
+                ? NetworkImage(reply.user!.avatarUrl!)
+                : null,
+            child: reply.user?.avatarUrl == null
+                ? Text(
+                    reply.user?.email[0].toUpperCase() ?? 'U',
+                    style: const TextStyle(fontSize: 10),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      reply.user?.email ?? 'Unknown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _getTimeAgo(reply.createdAt),
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  reply.content,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => _toggleLike(reply.id),
+                      child: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        size: 14,
+                        color: isLiked ? Colors.red : Colors.grey[500],
+                      ),
                     ),
                   ],
                 ),
@@ -670,200 +820,93 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _buildAssignmentStatusBadge(String status) {
-    Color color;
-    switch (status) {
-      case 'ACCEPTED':
-        color = Colors.green;
-        break;
-      case 'REJECTED':
-        color = Colors.red;
-        break;
-      default:
-        color = Colors.amber;
-    }
+  Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E1E1E),
+        border: Border(top: BorderSide(color: Colors.white24)),
       ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommentTree(Comment comment) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCommentItem(comment),
-        if (comment.replies != null && comment.replies!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 32.0), // Indent replies
-            child: Column(
-              children: comment.replies!
-                  .map((reply) => _buildCommentTree(reply))
-                  .toList(),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCommentItem(Comment comment) {
-    final hasLiked =
-        comment.likes?.any((l) => l.userId == widget.currentUserId) ?? false;
-    final likesCount = comment.likes?.length ?? 0;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundImage: comment.user?.avatarUrl != null
-                ? NetworkImage(comment.user!.avatarUrl!)
-                : null,
-            child: comment.user?.avatarUrl == null
-                ? Text(
-                    comment.user?.email[0].toUpperCase() ?? 'U',
-                    style: const TextStyle(fontSize: 10),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          comment.user?.email ?? 'Unknown',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('MMM d, h:mm a').format(comment.createdAt),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    comment.content,
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  // Actions: Like & Reply
-                  Row(
-                    children: [
-                      InkWell(
-                        onTap: () => _toggleLike(comment.id),
-                        child: Row(
-                          children: [
-                            Icon(
-                              hasLiked ? Icons.favorite : Icons.favorite_border,
-                              size: 14,
-                              color: hasLiked ? Colors.red : Colors.white54,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$likesCount',
-                              style: TextStyle(
-                                color: hasLiked ? Colors.red : Colors.white54,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      InkWell(
-                        onTap: () => _startReply(
-                          comment.id,
-                          comment.user?.email ?? 'Unknown',
-                        ),
-                        child: const Text(
-                          'Reply',
-                          style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetaItem(IconData icon, String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SafeArea(
+        top: false,
+        child: Column(
           children: [
-            Icon(icon, color: Colors.white54, size: 16),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            if (_replyingToCommentId != null)
+              Container(
+                padding: const EdgeInsets.only(bottom: 8),
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    Text(
+                      'Replying to ${_replyingToUserEmail ?? 'comment'}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      onPressed: _cancelReply,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.blue,
+                  child: const Text(
+                    'Me',
+                    style: TextStyle(fontSize: 10, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: _replyingToCommentId != null
+                          ? 'Add a reply...'
+                          : 'Add a comment...',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    minLines: 1,
+                    maxLines: 4,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _isSendingComment ? null : _addComment,
+                  icon: _isSendingComment
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.blue),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'DONE':
-        return Colors.green;
-      case 'IN_PROGRESS':
-        return Colors.blue;
-      default:
-        return Colors.amber;
-    }
+  String _getTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 7) return DateFormat('MMM d').format(date);
+    if (diff.inDays > 0) return '${diff.inDays}d';
+    if (diff.inHours > 0) return '${diff.inHours}h';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m';
+    return 'now';
   }
 }

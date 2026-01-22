@@ -644,15 +644,20 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
             child: ElevatedButton(
               onPressed: () => _claimTask(task.id),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.withOpacity(0.2),
-                foregroundColor: Colors.blue,
+                backgroundColor: Colors.blue.withOpacity(0.15),
                 elevation: 0,
                 side: BorderSide(color: Colors.blue.withOpacity(0.5)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Claim Task'),
+              child: const Text(
+                'Claim Task',
+                style: TextStyle(
+                  color: Colors.blue, // 👈 FORCE IT
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
         );
@@ -699,10 +704,9 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                   child: ElevatedButton(
                     onPressed: () => _respondToTask(task.id, 'ACCEPTED'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.withOpacity(0.2),
-                      foregroundColor: Colors.green,
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      side: BorderSide(color: Colors.green.withOpacity(0.5)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

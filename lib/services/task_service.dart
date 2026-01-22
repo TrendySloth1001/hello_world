@@ -158,4 +158,21 @@ class TaskService {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
+
+  Future<Map<String, dynamic>> getComments(
+    int taskId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/$taskId/comments?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
 }
