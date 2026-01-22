@@ -67,10 +67,15 @@ class WorkspaceService {
     String? name,
     String? description,
   }) async {
+    // Only include fields that are actually provided
+    final Map<String, dynamic> body = {};
+    if (name != null) body['name'] = name;
+    if (description != null) body['description'] = description;
+
     final response = await http.put(
       Uri.parse('$baseUrl/$id'),
       headers: await _getHeaders(),
-      body: jsonEncode({'name': name, 'description': description}),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {
