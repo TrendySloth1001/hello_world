@@ -51,9 +51,23 @@ class Conversation {
 
   // Helper to get display name
   String getDisplayName(int currentUserId) {
+    try {
+      final myMember = members.firstWhere((m) => m.userId == currentUserId);
+      if (myMember.nickname != null && myMember.nickname!.isNotEmpty) {
+        return myMember.nickname!;
+      }
+    } catch (_) {}
+
     if (type == 'GROUP') return name ?? 'Group Chat';
     final otherUser = getOtherUser(currentUserId);
     return otherUser?.email ?? 'Unknown User';
+  }
+
+  // Helper to get display avatar
+  String? getDisplayAvatarUrl(int currentUserId) {
+    if (type == 'GROUP') return null; // Use default group icon
+    final otherUser = getOtherUser(currentUserId);
+    return otherUser?.avatarUrl;
   }
 }
 
@@ -61,12 +75,14 @@ class ConversationMember {
   final int id;
   final int conversationId;
   final int userId;
+  final String? nickname;
   final User user;
 
   ConversationMember({
     required this.id,
     required this.conversationId,
     required this.userId,
+    this.nickname,
     required this.user,
   });
 
@@ -75,6 +91,7 @@ class ConversationMember {
       id: json['id'],
       conversationId: json['conversationId'],
       userId: json['userId'],
+      nickname: json['nickname'],
       user: User.fromJson(json['user']),
     );
   }

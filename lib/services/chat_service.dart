@@ -37,11 +37,14 @@ class ChatService {
   }
 
   // Create or get existing direct chat
-  Future<Conversation> getOrCreateDirectChat(int targetUserId) async {
+  Future<Conversation> getOrCreateDirectChat(
+    int targetUserId, {
+    String? nickname,
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/direct'),
       headers: await _getHeaders(),
-      body: jsonEncode({'targetId': targetUserId}),
+      body: jsonEncode({'targetId': targetUserId, 'nickname': nickname}),
     );
 
     if (response.statusCode == 200) {

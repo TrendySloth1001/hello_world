@@ -186,6 +186,10 @@ class _ChatScreenState extends State<ChatScreen> {
                               ? displayName[0].toUpperCase()
                               : '?';
 
+                          final avatarUrl = conversation.getDisplayAvatarUrl(
+                            _currentUserId ?? 0,
+                          );
+
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -194,14 +198,19 @@ class _ChatScreenState extends State<ChatScreen> {
                             leading: CircleAvatar(
                               radius: 24,
                               backgroundColor: Colors.blue.shade800,
-                              child: Text(
-                                initial,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              backgroundImage: avatarUrl != null
+                                  ? NetworkImage(avatarUrl)
+                                  : null,
+                              child: avatarUrl == null
+                                  ? Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
                             ),
                             title: Text(
                               displayName,
@@ -234,6 +243,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                     conversationId: conversation.id,
                                     conversationName: displayName,
                                     currentUserId: _currentUserId!,
+                                    targetUserId: conversation
+                                        .getOtherUser(_currentUserId!)
+                                        ?.id,
                                   ),
                                 ),
                               ).then((_) => _fetchConversations());

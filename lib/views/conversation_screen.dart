@@ -13,7 +13,10 @@ class ConversationScreen extends StatefulWidget {
     required this.conversationId,
     required this.conversationName,
     required this.currentUserId,
+    this.targetUserId,
   });
+
+  final int? targetUserId;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -24,6 +27,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  late String _displayConversationName;
+
   List<Message> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
@@ -32,6 +37,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void initState() {
     super.initState();
+    _displayConversationName = widget.conversationName;
     _loadMessages();
     // Start polling for new messages every 3 seconds
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
@@ -116,14 +122,127 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
   }
 
+  Future<void> _showChangeNicknameDialog() async {
+    final TextEditingController nicknameController = TextEditingController(
+      text:
+          _displayConversationName, // Use current display name as initial value
+    );
+
+    // Safety check: nickname update only works for direct chats where we identified the target user
+    if (widget.targetUserId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot change nickname for this conversation type.'),
+        ),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text(
+          'Change Nickname',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: nicknameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Enter new nickname',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.blue),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newNickname = nicknameController.text.trim();
+              if (newNickname.isNotEmpty) {
+                try {
+                  // Call service to update nickname
+                  await _chatService.getOrCreateDirectChat(
+                    widget.targetUserId!,
+                    nickname: newNickname,
+                  );
+
+                  if (mounted) {
+                    setState(() {
+                      _displayConversationName = newNickname;
+                    });
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Nickname updated to $newNickname'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update nickname: $e')),
+                    );
+                  }
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.conversationName),
-        backgroundColor: Colors.transparent,
+        title: Text(
+          _displayConversationName, // Use local state
+          style: const TextStyle(
+            fontSize: 16,
+          ), // Reduced font size as requested
+        ),
+        backgroundColor: const Color(0xFF0A0A0A), // Consistent dark header
         elevation: 0,
         centerTitle: false,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'nickname') {
+                _showChangeNicknameDialog();
+              }
+            },
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            color: const Color(0xFF1E1E1E),
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'nickname',
+                  child: Text(
+                    'Change Nickname',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ];
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -156,35 +275,66 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Widget _buildMessageBubble(Message message, bool isMe) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: isMe ? Colors.blue : Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+          if (!isMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.blue.shade900,
+              backgroundImage: message.sender?.avatarUrl != null
+                  ? NetworkImage(message.sender!.avatarUrl!)
+                  : null,
+              child: message.sender?.avatarUrl == null
+                  ? Text(
+                      (message.sender?.email ?? '?')[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 8),
+          ],
+          Column(
+            crossAxisAlignment: isMe
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.blue : Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+                    bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                  ),
+                ),
+                constraints: const BoxConstraints(maxWidth: 240),
+                child: Text(
+                  message.content,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
               ),
-            ),
-            constraints: const BoxConstraints(maxWidth: 260),
-            child: Text(
-              message.content,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _formatMessageTime(message.createdAt),
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
-              fontSize: 10,
-            ),
+              const SizedBox(height: 4),
+              Text(
+                _formatMessageTime(message.createdAt),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.3),
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
         ],
       ),
