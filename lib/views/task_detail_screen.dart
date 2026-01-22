@@ -21,6 +21,7 @@ class TaskDetailScreen extends StatefulWidget {
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final _taskService = TaskService();
   final _commentController = TextEditingController();
+  final _subTaskController = TextEditingController(); // For adding subtasks
   final _scrollController = ScrollController();
 
   Task? _task;
@@ -50,6 +51,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   void dispose() {
     _scrollController.dispose();
     _commentController.dispose();
+    _subTaskController.dispose();
     super.dispose();
   }
 
@@ -332,6 +334,48 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  // --- SubTasks Methods ---
+  Future<void> _addSubTask() async {
+    if (_subTaskController.text.trim().isEmpty) return;
+    try {
+      await _taskService.addSubTask(
+        widget.taskId,
+        _subTaskController.text.trim(),
+      );
+      _subTaskController.clear();
+      _loadTask();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add subtask: $e')));
+    }
+  }
+
+  Future<void> _toggleSubTask(int subTaskId) async {
+    try {
+      await _taskService.toggleSubTask(widget.taskId, subTaskId);
+      _loadTask();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update subtask: $e')));
+    }
+  }
+
+  Future<void> _deleteSubTask(int subTaskId) async {
+    try {
+      await _taskService.deleteSubTask(widget.taskId, subTaskId);
+      _loadTask();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete subtask: $e')));
+    }
+  }
+
   void _startReply(int commentId, String userEmail) {
     setState(() {
       _replyingToCommentId = commentId;
@@ -421,6 +465,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               slivers: [
                 SliverToBoxAdapter(child: _buildTaskHeader()),
                 SliverToBoxAdapter(child: _buildAssignmentSection()),
+                SliverToBoxAdapter(
+                  child: _buildSubTasksSection(),
+                ), // SubTasks Section
                 SliverToBoxAdapter(child: _buildActivityLog()),
                 SliverToBoxAdapter(
                   child: Padding(
@@ -836,6 +883,182 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubTasksSection() {
+    final subTasks = _task!.subTasks ?? [];
+
+    // Permission Logic
+    final myAssignment = _task!.assignments?.firstWhere(
+      (a) => a.user?.id == widget.currentUserId,
+      orElse: () => TaskAssignment(
+        id: 0,
+        taskId: 0,
+        status: 'NONE',
+        role: 'NONE',
+        timestamp: DateTime.now(),
+      ),
+    );
+    final amIAssignee =
+        (myAssignment?.role == 'ASSIGNEE' &&
+        myAssignment?.status == 'ACCEPTED');
+    final amICreator = _task!.createdById == widget.currentUserId;
+    final amICollaborator =
+        (myAssignment?.role == 'COLLABORATOR' &&
+        myAssignment?.status == 'ACCEPTED');
+
+    final canEditStructure = amIAssignee || amICreator;
+    final canToggle = canEditStructure || amICollaborator;
+
+    if (subTasks.isEmpty && !canEditStructure) return const SizedBox.shrink();
+
+    final completedCount = subTasks.where((s) => s.isCompleted).length;
+    final progress = subTasks.isEmpty ? 0.0 : completedCount / subTasks.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Sub-tasks',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$completedCount/${subTasks.length}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey[800],
+              valueColor: const AlwaysStoppedAnimation(Colors.green),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          ...subTasks
+              .map(
+                (s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Transform.scale(
+                            scale: 0.9,
+                            child: Checkbox(
+                              value: s.isCompleted,
+                              onChanged: canToggle
+                                  ? (v) => _toggleSubTask(s.id)
+                                  : null,
+                              fillColor: MaterialStateProperty.resolveWith(
+                                (states) => s.isCompleted
+                                    ? Colors.green
+                                    : Colors.grey[800],
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              s.title,
+                              style: TextStyle(
+                                color: Colors.white,
+                                decoration: s.isCompleted
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                decorationColor: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          if (canEditStructure)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.grey,
+                                size: 16,
+                              ),
+                              onPressed: () => _deleteSubTask(s.id),
+                            ),
+                        ],
+                      ),
+                      if (s.isCompleted && s.completedBy != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 48.0),
+                          child: Text(
+                            'Completed by ${s.completedBy!.email} at ${DateFormat('MMM d, h:mm a').format(s.completedAt!.toLocal())}',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+
+          if (canEditStructure && subTasks.length < 20)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _subTaskController,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Add a sub-task...',
+                        hintStyle: TextStyle(color: Colors.grey[600]),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[800]!),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[800]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.blue),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle, color: Colors.blue),
+                    onPressed: _addSubTask,
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

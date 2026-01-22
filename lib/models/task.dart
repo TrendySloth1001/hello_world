@@ -14,6 +14,7 @@ class Task {
   final List<TaskAssignment>? assignments;
   final List<Comment>? comments;
   final List<TaskActivity>? activities;
+  final List<SubTask>? subTasks;
   final int commentCount;
 
   Task({
@@ -30,6 +31,7 @@ class Task {
     this.assignments,
     this.comments,
     this.activities,
+    this.subTasks,
     this.commentCount = 0,
   });
 
@@ -60,7 +62,43 @@ class Task {
                 .map((e) => TaskActivity.fromJson(e))
                 .toList()
           : null,
+      subTasks: json['subTasks'] != null
+          ? (json['subTasks'] as List).map((e) => SubTask.fromJson(e)).toList()
+          : null,
       commentCount: json['_count'] != null ? json['_count']['comments'] : 0,
+    );
+  }
+}
+
+class SubTask {
+  final int id;
+  final int taskId;
+  final String title;
+  final bool isCompleted;
+  final User? completedBy;
+  final DateTime? completedAt;
+
+  SubTask({
+    required this.id,
+    required this.taskId,
+    required this.title,
+    required this.isCompleted,
+    this.completedBy,
+    this.completedAt,
+  });
+
+  factory SubTask.fromJson(Map<String, dynamic> json) {
+    return SubTask(
+      id: json['id'],
+      taskId: json['taskId'],
+      title: json['title'],
+      isCompleted: json['isCompleted'],
+      completedBy: json['completedBy'] != null
+          ? User.fromJson(json['completedBy'])
+          : null,
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'])
+          : null,
     );
   }
 }
@@ -92,9 +130,7 @@ class TaskAssignment {
       status: json['status'],
       role: json['role'] ?? 'ASSIGNEE',
       rejectionReason: json['rejectionReason'],
-      timestamp: DateTime.parse(
-        json['updatedAt'],
-      ), // Using updatedAt as latest status time
+      timestamp: DateTime.parse(json['updatedAt']),
     );
   }
 }

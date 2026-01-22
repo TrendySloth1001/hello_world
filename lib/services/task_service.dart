@@ -205,4 +205,42 @@ class TaskService {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
+
+  Future<SubTask> addSubTask(int taskId, String title) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/subtasks'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'title': title}),
+    );
+
+    if (response.statusCode == 201) {
+      return SubTask.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<SubTask> toggleSubTask(int taskId, int subTaskId) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/$taskId/subtasks/$subTaskId/toggle'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return SubTask.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<void> deleteSubTask(int taskId, int subTaskId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/$taskId/subtasks/$subTaskId'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
 }
