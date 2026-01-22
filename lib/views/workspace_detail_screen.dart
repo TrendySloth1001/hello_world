@@ -38,7 +38,12 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
   List<JoinRequest> _requests = [];
   List<Task> _tasks = [];
   bool _isLoading = true;
-  int? _currentUserId; // Add currentUserId
+  int? _currentUserId;
+
+  // Filter State
+  String? _filterStatus;
+  String? _filterPriority;
+  bool _filterMyTasks = false;
 
   @override
   void initState() {
@@ -354,7 +359,134 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
     );
   }
 
+  List<Task> get _filteredTasks {
+    return _tasks.where((t) {
+      if (_filterMyTasks) {
+        final isAssigned =
+            t.assignments?.any(
+              (a) =>
+                  a.user?.id == _currentUserId &&
+                  a.role == 'ASSIGNEE' &&
+                  a.status == 'ACCEPTED',
+            ) ??
+            false;
+        if (!isAssigned) return false;
+      }
+      if (_filterStatus != null && t.status != _filterStatus) return false;
+      if (_filterPriority != null && t.priority != _filterPriority)
+        return false;
+      return true;
+    }).toList();
+  }
+
+  bool get _hasActiveFilters =>
+      _filterStatus != null || _filterPriority != null || _filterMyTasks;
+
+  Widget _buildFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          // My Tasks Toggle
+          FilterChip(
+            label: const Text('My Tasks'),
+            selected: _filterMyTasks,
+            selectedColor: Colors.blue.withOpacity(0.3),
+            checkmarkColor: Colors.blue,
+            backgroundColor: Colors.grey[900],
+            labelStyle: TextStyle(
+              color: _filterMyTasks ? Colors.blue : Colors.white70,
+              fontSize: 12,
+            ),
+            onSelected: (selected) {
+              setState(() => _filterMyTasks = selected);
+            },
+          ),
+          const SizedBox(width: 8),
+
+          // Status Chips
+          ...<String>['TODO', 'IN_PROGRESS', 'DONE'].map((status) {
+            final isSelected = _filterStatus == status;
+            final label = status == 'IN_PROGRESS'
+                ? 'In Progress'
+                : status[0] + status.substring(1).toLowerCase();
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: isSelected,
+                selectedColor: _getStatusColor(status).withOpacity(0.3),
+                backgroundColor: Colors.grey[900],
+                labelStyle: TextStyle(
+                  color: isSelected ? _getStatusColor(status) : Colors.white70,
+                  fontSize: 12,
+                ),
+                onSelected: (selected) {
+                  setState(() => _filterStatus = selected ? status : null);
+                },
+              ),
+            );
+          }),
+
+          // Priority Chips
+          ...<String>['HIGH', 'MEDIUM', 'LOW'].map((priority) {
+            final isSelected = _filterPriority == priority;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(priority[0] + priority.substring(1).toLowerCase()),
+                selected: isSelected,
+                selectedColor: _getPriorityColor(priority).withOpacity(0.3),
+                backgroundColor: Colors.grey[900],
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? _getPriorityColor(priority)
+                      : Colors.white70,
+                  fontSize: 12,
+                ),
+                onSelected: (selected) {
+                  setState(() => _filterPriority = selected ? priority : null);
+                },
+              ),
+            );
+          }),
+
+          // Clear Filters
+          if (_hasActiveFilters)
+            ActionChip(
+              label: const Text('Clear'),
+              avatar: const Icon(Icons.close, size: 14, color: Colors.red),
+              backgroundColor: Colors.grey[900],
+              labelStyle: const TextStyle(color: Colors.red, fontSize: 12),
+              onPressed: () {
+                setState(() {
+                  _filterStatus = null;
+                  _filterPriority = null;
+                  _filterMyTasks = false;
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    if (status == 'DONE') return Colors.green;
+    if (status == 'IN_PROGRESS') return Colors.blue;
+    return Colors.grey;
+  }
+
+  Color _getPriorityColor(String priority) {
+    if (priority == 'HIGH') return Colors.red;
+    if (priority == 'MEDIUM') return Colors.orange;
+    return Colors.grey;
+  }
+
   Widget _buildTasksList() {
+    final filtered = _filteredTasks;
+
     if (_tasks.isEmpty) {
       return const Center(
         child: Column(
@@ -367,49 +499,67 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         ),
       );
     }
-    final openTasks = _tasks.where((t) => t.isOpen).toList();
-    final regularTasks = _tasks.where((t) => !t.isOpen).toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (openTasks.isNotEmpty) ...[
-          const Text(
-            'Open Tasks (Poll)',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...openTasks.map((task) => _buildTaskCard(task)),
-          const SizedBox(height: 24),
-          const Text(
-            'All Tasks',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        if (regularTasks.isEmpty && openTasks.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.only(top: 48.0),
+    if (filtered.isEmpty && _hasActiveFilters) {
+      return Column(
+        children: [
+          _buildFilterBar(),
+          const Expanded(
+            child: Center(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.task_alt, size: 64, color: Colors.white24),
+                  Icon(Icons.filter_alt_off, size: 64, color: Colors.white24),
                   SizedBox(height: 16),
-                  Text('No tasks yet', style: TextStyle(color: Colors.white54)),
+                  Text(
+                    'No tasks match your filters',
+                    style: TextStyle(color: Colors.white54),
+                  ),
                 ],
               ),
             ),
-          )
-        else
-          ...regularTasks.map((task) => _buildTaskCard(task)),
+          ),
+        ],
+      );
+    }
+
+    final openTasks = filtered.where((t) => t.isOpen).toList();
+    final regularTasks = filtered.where((t) => !t.isOpen).toList();
+
+    return Column(
+      children: [
+        _buildFilterBar(),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (openTasks.isNotEmpty) ...[
+                const Text(
+                  'Open Tasks (Poll)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...openTasks.map((task) => _buildTaskCard(task)),
+                const SizedBox(height: 24),
+                if (regularTasks.isNotEmpty)
+                  const Text(
+                    'All Tasks',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+              ...regularTasks.map((task) => _buildTaskCard(task)),
+            ],
+          ),
+        ),
       ],
     );
   }
