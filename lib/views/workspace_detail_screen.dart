@@ -383,91 +383,124 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
       _filterStatus != null || _filterPriority != null || _filterMyTasks;
 
   Widget _buildFilterBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          // My Tasks Toggle
-          FilterChip(
-            label: const Text('My Tasks'),
-            selected: _filterMyTasks,
-            selectedColor: Colors.blue.withOpacity(0.3),
-            checkmarkColor: Colors.blue,
-            backgroundColor: Colors.grey[900],
-            labelStyle: TextStyle(
-              color: _filterMyTasks ? Colors.blue : Colors.white70,
-              fontSize: 12,
-            ),
-            onSelected: (selected) {
-              setState(() => _filterMyTasks = selected);
-            },
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(width: 8),
-
-          // Status Chips
-          ...<String>['TODO', 'IN_PROGRESS', 'DONE'].map((status) {
-            final isSelected = _filterStatus == status;
-            final label = status == 'IN_PROGRESS'
-                ? 'In Progress'
-                : status[0] + status.substring(1).toLowerCase();
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(label),
-                selected: isSelected,
-                selectedColor: _getStatusColor(status).withOpacity(0.3),
-                backgroundColor: Colors.grey[900],
-                labelStyle: TextStyle(
-                  color: isSelected ? _getStatusColor(status) : Colors.white70,
-                  fontSize: 12,
-                ),
-                onSelected: (selected) {
-                  setState(() => _filterStatus = selected ? status : null);
-                },
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            // My Tasks Toggle
+            FilterChip(
+              label: const Text('My Tasks'),
+              selected: _filterMyTasks,
+              selectedColor: Colors.blue.withOpacity(0.3),
+              checkmarkColor: Colors.blue,
+              backgroundColor: Colors.grey[850],
+              labelStyle: TextStyle(
+                color: _filterMyTasks ? Colors.blue : Colors.white70,
+                fontSize: 12,
               ),
-            );
-          }),
-
-          // Priority Chips
-          ...<String>['HIGH', 'MEDIUM', 'LOW'].map((priority) {
-            final isSelected = _filterPriority == priority;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(priority[0] + priority.substring(1).toLowerCase()),
-                selected: isSelected,
-                selectedColor: _getPriorityColor(priority).withOpacity(0.3),
-                backgroundColor: Colors.grey[900],
-                labelStyle: TextStyle(
-                  color: isSelected
-                      ? _getPriorityColor(priority)
-                      : Colors.white70,
-                  fontSize: 12,
-                ),
-                onSelected: (selected) {
-                  setState(() => _filterPriority = selected ? priority : null);
-                },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-            );
-          }),
-
-          // Clear Filters
-          if (_hasActiveFilters)
-            ActionChip(
-              label: const Text('Clear'),
-              avatar: const Icon(Icons.close, size: 14, color: Colors.red),
-              backgroundColor: Colors.grey[900],
-              labelStyle: const TextStyle(color: Colors.red, fontSize: 12),
-              onPressed: () {
-                setState(() {
-                  _filterStatus = null;
-                  _filterPriority = null;
-                  _filterMyTasks = false;
-                });
+              onSelected: (selected) {
+                setState(() => _filterMyTasks = selected);
               },
             ),
-        ],
+            const SizedBox(width: 8),
+
+            // Status Chips
+            ...<String>['TODO', 'IN_PROGRESS', 'DONE'].map((status) {
+              final isSelected = _filterStatus == status;
+              final label = status == 'IN_PROGRESS'
+                  ? 'In Progress'
+                  : status[0] + status.substring(1).toLowerCase();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(label),
+                  selected: isSelected,
+                  selectedColor: _getStatusColor(status).withOpacity(0.3),
+                  backgroundColor: Colors.grey[850],
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? _getStatusColor(status)
+                        : Colors.white70,
+                    fontSize: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  onSelected: (selected) {
+                    setState(() => _filterStatus = selected ? status : null);
+                  },
+                ),
+              );
+            }),
+
+            // Priority Chips
+            ...<String>['HIGH', 'MEDIUM', 'LOW'].map((priority) {
+              final isSelected = _filterPriority == priority;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(
+                    priority[0] + priority.substring(1).toLowerCase(),
+                  ),
+                  selected: isSelected,
+                  selectedColor: _getPriorityColor(priority).withOpacity(0.3),
+                  backgroundColor: Colors.grey[850],
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? _getPriorityColor(priority)
+                        : Colors.white70,
+                    fontSize: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  onSelected: (selected) {
+                    setState(
+                      () => _filterPriority = selected ? priority : null,
+                    );
+                  },
+                ),
+              );
+            }),
+
+            // Clear Filters
+            if (_hasActiveFilters)
+              ActionChip(
+                label: const Text('Clear'),
+                avatar: const Icon(Icons.close, size: 14, color: Colors.red),
+                backgroundColor: Colors.grey[850],
+                labelStyle: const TextStyle(color: Colors.red, fontSize: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _filterStatus = null;
+                    _filterPriority = null;
+                    _filterMyTasks = false;
+                  });
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
