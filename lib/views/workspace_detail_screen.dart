@@ -423,7 +423,10 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+        side: BorderSide(
+          color: priorityColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
       ),
       child: InkWell(
         onTap: () async {
@@ -439,163 +442,130 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
           _loadData(); // Refresh on return
         },
         borderRadius: BorderRadius.circular(12),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Priority Strip
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: priorityColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
+              // Header: Title and Avatar
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDone ? Colors.white54 : Colors.white,
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  if (task.assignments != null && task.assignments!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Colors.grey[800],
+                        backgroundImage:
+                            task.assignments![0].user?.avatarUrl != null
+                            ? NetworkImage(
+                                task.assignments![0].user!.avatarUrl!,
+                              )
+                            : null,
+                        child: task.assignments![0].user?.avatarUrl == null
+                            ? Text(
+                                task.assignments![0].user?.email[0]
+                                        .toUpperCase() ??
+                                    'U',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // Description
+              if (task.description != null && task.description!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    task.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 13),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header: Title and Avatar
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              task.title,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: isDone ? Colors.white54 : Colors.white,
-                                decoration: isDone
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
-                            ),
-                          ),
-                          if (task.assignments != null &&
-                              task.assignments!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 12),
-                              child: CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Colors.grey[800],
-                                backgroundImage:
-                                    task.assignments![0].user?.avatarUrl != null
-                                    ? NetworkImage(
-                                        task.assignments![0].user!.avatarUrl!,
-                                      )
-                                    : null,
-                                child:
-                                    task.assignments![0].user?.avatarUrl == null
-                                    ? Text(
-                                        task.assignments![0].user?.email[0]
-                                                .toUpperCase() ??
-                                            'U',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                            ),
-                        ],
+              // Footer: Date, Comments, Priority Badge
+              Row(
+                children: [
+                  if (task.dueDate != null) ...[
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: isOverdue ? Colors.red : Colors.grey[500],
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatDate(task.dueDate!),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isOverdue ? Colors.red : Colors.grey[500],
+                        fontWeight: isOverdue
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
-                      const SizedBox(height: 6),
-                      // Description
-                      if (task.description != null &&
-                          task.description!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            task.description!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      // Footer: Date, Comments, Priority Badge
-                      Row(
-                        children: [
-                          if (task.dueDate != null) ...[
-                            Icon(
-                              Icons.calendar_today,
-                              size: 14,
-                              color: isOverdue ? Colors.red : Colors.grey[500],
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _formatDate(task.dueDate!),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isOverdue
-                                    ? Colors.red
-                                    : Colors.grey[500],
-                                fontWeight: isOverdue
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                          ],
-                          // Comments
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 14,
-                            color: task.commentCount > 0
-                                ? Colors.amber
-                                : Colors.grey[500],
-                          ),
-                          if (task.commentCount > 0) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '${task.commentCount}',
-                              style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                          const Spacer(),
-                          // Priority Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: priorityColor.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: priorityColor.withValues(alpha: 0.5),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              task.priority,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: priorityColor,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      _buildCardActions(task),
-                    ],
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  // Comments
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    size: 14,
+                    color: task.commentCount > 0
+                        ? Colors.amber
+                        : Colors.grey[500],
                   ),
-                ),
+                  if (task.commentCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '${task.commentCount}',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
+                  ],
+                  const Spacer(),
+                  // Priority Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: priorityColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: priorityColor.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      task.priority,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: priorityColor,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              _buildCardActions(task),
             ],
           ),
         ),
@@ -615,31 +585,11 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
   }
 
   Widget _buildCardActions(Task task) {
-    if (task.isOpen) {
-      if (_currentUserId == null) return const SizedBox.shrink();
+    Widget? reasonWidget;
 
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => _claimTask(task.id),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Claim Task'),
-          ),
-        ),
-      );
-    }
-
-    final myAssignment = task.assignments?.firstWhere(
-      (a) => a.user?.id == _currentUserId,
+    // Find rejection reason if available
+    final rejectedAssignment = task.assignments?.firstWhere(
+      (a) => a.status == 'REJECTED' && a.rejectionReason != null,
       orElse: () => TaskAssignment(
         id: 0,
         taskId: 0,
@@ -648,48 +598,135 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
       ),
     );
 
-    if (myAssignment != null &&
-        myAssignment.status == 'PENDING' &&
-        _currentUserId != null) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: Row(
+    if (task.isOpen &&
+        rejectedAssignment != null &&
+        rejectedAssignment.status == 'REJECTED') {
+      reasonWidget = Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(8),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.red.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => _respondToTask(task.id, 'REJECTED'),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.red.withOpacity(0.5)),
-                  foregroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Reject'),
+            const Text(
+              'Rejected:',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => _respondToTask(task.id, 'ACCEPTED'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Accept'),
-              ),
+            Text(
+              rejectedAssignment.rejectionReason ?? '',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
       );
     }
 
-    return const SizedBox.shrink();
+    Widget? buttonsWidget;
+
+    if (task.isOpen) {
+      if (_currentUserId != null) {
+        buttonsWidget = Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: SizedBox(
+            height: 36,
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _claimTask(task.id),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.withOpacity(0.2),
+                foregroundColor: Colors.blue,
+                elevation: 0,
+                side: BorderSide(color: Colors.blue.withOpacity(0.5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Claim Task'),
+            ),
+          ),
+        );
+      }
+    } else {
+      final myAssignment = task.assignments?.firstWhere(
+        (a) => a.user?.id == _currentUserId,
+        orElse: () => TaskAssignment(
+          id: 0,
+          taskId: 0,
+          status: 'NONE',
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      if (myAssignment != null &&
+          myAssignment.status == 'PENDING' &&
+          _currentUserId != null) {
+        buttonsWidget = Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: OutlinedButton(
+                    onPressed: () => _respondToTask(task.id, 'REJECTED'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: ElevatedButton(
+                    onPressed: () => _respondToTask(task.id, 'ACCEPTED'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.withOpacity(0.2),
+                      foregroundColor: Colors.green,
+                      elevation: 0,
+                      side: BorderSide(color: Colors.green.withOpacity(0.5)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    if (reasonWidget == null && buttonsWidget == null)
+      return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (reasonWidget != null) reasonWidget,
+        if (buttonsWidget != null) buttonsWidget,
+      ],
+    );
   }
 
   Future<void> _claimTask(int taskId) async {
