@@ -498,32 +498,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ).then((_) => _loadWorkspaces());
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF111111),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isOwner ? Colors.white24 : Colors.white12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header row
-            Row(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                // Avatar/Icon
+                // Avatar
                 Container(
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: isOwner
-                        ? Colors.white12
-                        : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(18),
                     child:
                         workspace.avatarUrl != null &&
                             workspace.avatarUrl!.isNotEmpty
@@ -535,12 +526,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 workspace.name.isNotEmpty
                                     ? workspace.name[0].toUpperCase()
                                     : 'W',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: isOwner
-                                      ? Colors.white
-                                      : Colors.white70,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white38,
                                 ),
                               ),
                             ),
@@ -550,110 +539,117 @@ class _HomeScreenState extends State<HomeScreen> {
                               workspace.name.isNotEmpty
                                   ? workspace.name[0].toUpperCase()
                                   : 'W',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isOwner ? Colors.white : Colors.white70,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white38,
                               ),
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Title & role
+                const SizedBox(width: 14),
+                // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        workspace.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(
-                            isOwner ? Icons.star_rounded : Icons.person_outline,
-                            size: 14,
-                            color: isOwner ? Colors.amber : Colors.white54,
+                          Expanded(
+                            child: Text(
+                              workspace.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isOwner ? 'Owner' : 'Member',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.white.withOpacity(0.4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          // Member avatars
+                          SizedBox(
+                            width: _calculateStackWidth(workspace.memberCount),
+                            height: 30,
+                            child: Stack(
+                              children: _buildStackedAvatars(workspace),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Text(
-                            isOwner ? 'Owner' : 'Member',
+                            '${workspace.memberCount}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isOwner ? Colors.amber : Colors.white54,
+                              color: Colors.white.withOpacity(0.35),
                             ),
+                          ),
+                          if (workspace.description != null &&
+                              workspace.description!.isNotEmpty) ...[
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              width: 1,
+                              height: 14,
+                              color: Colors.white.withOpacity(0.1),
+                            ),
+                            Expanded(
+                              child: Text(
+                                workspace.description!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.35),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ] else
+                            const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: Colors.white.withOpacity(0.25),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                // Actions
-                IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 20),
-                  color: Colors.white38,
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: workspace.publicId));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Invite ID copied!'),
-                        backgroundColor: Colors.green,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  tooltip: 'Copy Invite ID',
-                ),
               ],
             ),
-            // Description
-            if (workspace.description != null &&
-                workspace.description!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                workspace.description!,
-                style: const TextStyle(color: Colors.white54, fontSize: 14),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            // Footer with stacked avatars
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                // Stacked avatars
-                SizedBox(
-                  width: _calculateStackWidth(workspace.memberCount),
-                  height: 28,
-                  child: Stack(children: _buildStackedAvatars(workspace)),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${workspace.memberCount} member${workspace.memberCount != 1 ? 's' : ''}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 13),
-                ),
-                const Spacer(),
-                const Text(
-                  'View Details',
-                  style: TextStyle(color: Colors.white54, fontSize: 13),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 12,
-                  color: Colors.white54,
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+          // Divider
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            color: Colors.white.withOpacity(0.06),
+          ),
+        ],
       ),
     );
   }

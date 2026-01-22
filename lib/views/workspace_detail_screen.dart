@@ -628,214 +628,227 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         [];
 
     return Card(
-      color: const Color(0xFF1E1E1E),
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: priorityColor.withOpacity(0.3), width: 1.5),
-      ),
-      child: InkWell(
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TaskDetailScreen(
-                taskId: task.id,
-                currentUserId: _currentUserId ?? 0,
-              ),
-            ),
-          );
-          _loadData();
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: Title and Avatar Stack
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDone ? Colors.white54 : Colors.white,
-                        decoration: isDone ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Avatar Logic
-                  if (task.isOpen && assignees.isEmpty)
-                    Tooltip(
-                      message: 'Open Task',
-                      child: CircleAvatar(
-                        radius: 12,
-                        backgroundColor: Colors.blue.withOpacity(0.2),
-                        child: const Icon(
-                          Icons.how_to_vote,
-                          size: 14,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    )
-                  else ...[
-                    Builder(
-                      builder: (context) {
-                        // Combine and take up to 3 avatars (Assignee + Collaborators)
-                        final usersToShow = [
-                          ...assignees.map((a) => a.user),
-                          ...collaborators.map((a) => a.user),
-                        ].whereType<User>().take(3).toList();
-
-                        if (usersToShow.isEmpty)
-                          return const SizedBox(height: 24);
-
-                        final double overlap = 14.0;
-                        final double avatarSize = 24.0;
-                        final double width =
-                            avatarSize + (usersToShow.length - 1) * overlap;
-
-                        return SizedBox(
-                          height: avatarSize,
-                          width: width,
-                          child: Stack(
-                            children: usersToShow.asMap().entries.map((entry) {
-                              return Positioned(
-                                left: entry.key * overlap,
-                                child: _buildSmallAvatar(entry.value),
-                              );
-                            }).toList(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 6),
-
-              // Description
-              if (task.description != null && task.description!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    task.description!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13),
+      color: Colors.transparent,
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TaskDetailScreen(
+                    taskId: task.id,
+                    currentUserId: _currentUserId ?? 0,
                   ),
                 ),
-
-              // Progress Bar
-              if (totalCount > 0)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
+              );
+              _loadData();
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header: Title and Avatar Stack
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.grey[800],
-                            valueColor: const AlwaysStoppedAnimation(
-                              Colors.green,
-                            ),
-                            minHeight: 4,
+                        child: Text(
+                          task.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDone ? Colors.white54 : Colors.white,
+                            decoration: isDone
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$completedCount/$totalCount',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10,
+                      const SizedBox(width: 12),
+                      // Avatar Logic
+                      if (task.isOpen && assignees.isEmpty)
+                        Tooltip(
+                          message: 'Open Task',
+                          child: CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.blue.withOpacity(0.2),
+                            child: const Icon(
+                              Icons.how_to_vote,
+                              size: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        )
+                      else ...[
+                        Builder(
+                          builder: (context) {
+                            // Combine and take up to 3 avatars (Assignee + Collaborators)
+                            final usersToShow = [
+                              ...assignees.map((a) => a.user),
+                              ...collaborators.map((a) => a.user),
+                            ].whereType<User>().take(3).toList();
+
+                            if (usersToShow.isEmpty)
+                              return const SizedBox(height: 24);
+
+                            final double overlap = 14.0;
+                            final double avatarSize = 24.0;
+                            final double width =
+                                avatarSize + (usersToShow.length - 1) * overlap;
+
+                            return SizedBox(
+                              height: avatarSize,
+                              width: width,
+                              child: Stack(
+                                children: usersToShow.asMap().entries.map((
+                                  entry,
+                                ) {
+                                  return Positioned(
+                                    left: entry.key * overlap,
+                                    child: _buildSmallAvatar(entry.value),
+                                  );
+                                }).toList(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Description
+                  if (task.description != null && task.description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        task.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                      ),
+                    ),
+
+                  // Progress Bar
+                  if (totalCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                backgroundColor: Colors.grey[800],
+                                valueColor: const AlwaysStoppedAnimation(
+                                  Colors.green,
+                                ),
+                                minHeight: 4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$completedCount/$totalCount',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Footer
+                  Row(
+                    children: [
+                      if (task.dueDate != null) ...[
+                        Icon(
+                          Icons.calendar_today,
+                          size: 14,
+                          color: isOverdue ? Colors.red : Colors.grey[500],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatDate(task.dueDate!),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isOverdue ? Colors.red : Colors.grey[500],
+                            fontWeight: isOverdue
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                      // Comments
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 14,
+                        color: task.commentCount > 0
+                            ? Colors.amber
+                            : Colors.grey[500],
+                      ),
+                      if (task.commentCount > 0) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '${task.commentCount}',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      // Priority Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: priorityColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          task.priority,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: priorityColor,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-
-              // Footer
-              Row(
-                children: [
-                  if (task.dueDate != null) ...[
-                    Icon(
-                      Icons.calendar_today,
-                      size: 14,
-                      color: isOverdue ? Colors.red : Colors.grey[500],
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _formatDate(task.dueDate!),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isOverdue ? Colors.red : Colors.grey[500],
-                        fontWeight: isOverdue
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
-                  // Comments
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 14,
-                    color: task.commentCount > 0
-                        ? Colors.amber
-                        : Colors.grey[500],
-                  ),
-                  if (task.commentCount > 0) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      '${task.commentCount}',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
-                  ],
-                  const Spacer(),
-                  // Priority Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: priorityColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: priorityColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      task.priority,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: priorityColor,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
+                  _buildCardActions(task),
                 ],
               ),
-              _buildCardActions(task),
-            ],
+            ),
           ),
-        ),
+          // Divider
+          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+        ],
       ),
     );
   }
 
   Widget _buildSmallAvatar(User? user) {
     return Container(
+      height: 24,
+
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: const Color(0xFF1E1E1E), width: 1.5),
