@@ -221,16 +221,26 @@ class WorkspaceService {
 
   Future<InviteUser> searchUserByEmail(String email) async {
     final response = await http.get(
-      Uri.parse(
-        '$baseUrl/user/search?email=$email',
-      ),
+      Uri.parse('${ApiConfig.baseUrl}/user/search?email=$email'),
       headers: await _getHeaders(),
     );
 
     if (response.statusCode == 200) {
-      return InviteUser.fromJson(jsonDecode(response.body));
+      try {
+        return InviteUser.fromJson(jsonDecode(response.body));
+      } on FormatException {
+        throw Exception(
+          'Server returned invalid response: ${response.body.substring(0, 50)}...',
+        );
+      }
     } else {
-      throw Exception(jsonDecode(response.body)['message']);
+      try {
+        throw Exception(jsonDecode(response.body)['message']);
+      } on FormatException {
+        throw Exception(
+          'Server returned invalid error: ${response.body.substring(0, 50)}...',
+        );
+      }
     }
   }
 
@@ -242,7 +252,14 @@ class WorkspaceService {
     );
 
     if (response.statusCode != 201) {
-      throw Exception(jsonDecode(response.body)['message']);
+      try {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Unknown error');
+      } on FormatException {
+        throw Exception(
+          'Server returned invalid response: ${response.body.substring(0, 50)}...',
+        );
+      }
     }
   }
 
