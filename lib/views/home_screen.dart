@@ -361,8 +361,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createWorkspace,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Colors.transparent.withOpacity(0.4),
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('New'),
       ),

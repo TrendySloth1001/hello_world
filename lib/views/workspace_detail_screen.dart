@@ -353,8 +353,8 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
             _loadData();
           }
         },
-        backgroundColor: Colors.amber,
-        child: const Icon(Icons.add, color: Colors.black),
+        backgroundColor: Colors.transparent.withOpacity(0.4),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -384,123 +384,128 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
 
   Widget _buildFilterBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            // My Tasks Toggle
-            FilterChip(
-              label: const Text('My Tasks'),
-              selected: _filterMyTasks,
-              selectedColor: Colors.blue.withOpacity(0.3),
-              checkmarkColor: Colors.blue,
-              backgroundColor: Colors.grey[850],
-              labelStyle: TextStyle(
-                color: _filterMyTasks ? Colors.blue : Colors.white70,
-                fontSize: 12,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              onSelected: (selected) {
-                setState(() => _filterMyTasks = selected);
-              },
+      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+      decoration: BoxDecoration(color: Colors.transparent),
+      child: Column(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // My Tasks Toggle
+                FilterChip(
+                  label: const Text('My Tasks'),
+                  selected: _filterMyTasks,
+                  selectedColor: Colors.blue.withOpacity(0.3),
+                  checkmarkColor: Colors.blue,
+                  backgroundColor: Colors.grey[850],
+                  labelStyle: TextStyle(
+                    color: _filterMyTasks ? Colors.blue : Colors.white70,
+                    fontSize: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  onSelected: (selected) {
+                    setState(() => _filterMyTasks = selected);
+                  },
+                ),
+                const SizedBox(width: 8),
+
+                // Status Chips
+                ...<String>['TODO', 'IN_PROGRESS', 'DONE'].map((status) {
+                  final isSelected = _filterStatus == status;
+                  final label = status == 'IN_PROGRESS'
+                      ? 'In Progress'
+                      : status[0] + status.substring(1).toLowerCase();
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: isSelected,
+                      selectedColor: _getStatusColor(status).withOpacity(0.3),
+                      backgroundColor: Colors.grey[850],
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? _getStatusColor(status)
+                            : Colors.white70,
+                        fontSize: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      onSelected: (selected) {
+                        setState(
+                          () => _filterStatus = selected ? status : null,
+                        );
+                      },
+                    ),
+                  );
+                }),
+
+                // Priority Chips
+                ...<String>['HIGH', 'MEDIUM', 'LOW'].map((priority) {
+                  final isSelected = _filterPriority == priority;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(
+                        priority[0] + priority.substring(1).toLowerCase(),
+                      ),
+                      selected: isSelected,
+                      selectedColor: _getPriorityColor(
+                        priority,
+                      ).withOpacity(0.3),
+                      backgroundColor: Colors.grey[850],
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? _getPriorityColor(priority)
+                            : Colors.white70,
+                        fontSize: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      onSelected: (selected) {
+                        setState(
+                          () => _filterPriority = selected ? priority : null,
+                        );
+                      },
+                    ),
+                  );
+                }),
+
+                // Clear Filters
+                if (_hasActiveFilters)
+                  ActionChip(
+                    label: const Text('Clear'),
+                    avatar: const Icon(
+                      Icons.close,
+                      size: 14,
+                      color: Colors.red,
+                    ),
+                    backgroundColor: Colors.grey[850],
+                    labelStyle: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _filterStatus = null;
+                        _filterPriority = null;
+                        _filterMyTasks = false;
+                      });
+                    },
+                  ),
+              ],
             ),
-            const SizedBox(width: 8),
-
-            // Status Chips
-            ...<String>['TODO', 'IN_PROGRESS', 'DONE'].map((status) {
-              final isSelected = _filterStatus == status;
-              final label = status == 'IN_PROGRESS'
-                  ? 'In Progress'
-                  : status[0] + status.substring(1).toLowerCase();
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(label),
-                  selected: isSelected,
-                  selectedColor: _getStatusColor(status).withOpacity(0.3),
-                  backgroundColor: Colors.grey[850],
-                  labelStyle: TextStyle(
-                    color: isSelected
-                        ? _getStatusColor(status)
-                        : Colors.white70,
-                    fontSize: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  onSelected: (selected) {
-                    setState(() => _filterStatus = selected ? status : null);
-                  },
-                ),
-              );
-            }),
-
-            // Priority Chips
-            ...<String>['HIGH', 'MEDIUM', 'LOW'].map((priority) {
-              final isSelected = _filterPriority == priority;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(
-                    priority[0] + priority.substring(1).toLowerCase(),
-                  ),
-                  selected: isSelected,
-                  selectedColor: _getPriorityColor(priority).withOpacity(0.3),
-                  backgroundColor: Colors.grey[850],
-                  labelStyle: TextStyle(
-                    color: isSelected
-                        ? _getPriorityColor(priority)
-                        : Colors.white70,
-                    fontSize: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  onSelected: (selected) {
-                    setState(
-                      () => _filterPriority = selected ? priority : null,
-                    );
-                  },
-                ),
-              );
-            }),
-
-            // Clear Filters
-            if (_hasActiveFilters)
-              ActionChip(
-                label: const Text('Clear'),
-                avatar: const Icon(Icons.close, size: 14, color: Colors.red),
-                backgroundColor: Colors.grey[850],
-                labelStyle: const TextStyle(color: Colors.red, fontSize: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                onPressed: () {
-                  setState(() {
-                    _filterStatus = null;
-                    _filterPriority = null;
-                    _filterMyTasks = false;
-                  });
-                },
-              ),
-          ],
-        ),
+          ),
+          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+        ],
       ),
     );
   }
@@ -1389,6 +1394,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Color(0xFF1E1E1E),
@@ -1397,30 +1403,155 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Info Section
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        backgroundImage: widget.ownerAvatarUrl != null
+                            ? NetworkImage(widget.ownerAvatarUrl!)
+                            : null,
+                        child: widget.ownerAvatarUrl == null
+                            ? Text(
+                                widget.ownerEmail.isNotEmpty
+                                    ? widget.ownerEmail[0].toUpperCase()
+                                    : 'O',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white54,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.workspaceName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.ownerEmail,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildSettingsStat(
+                        Icons.people_outline,
+                        '${_members.length}',
+                        'Members',
+                      ),
+                      _buildSettingsStat(
+                        Icons.task_alt,
+                        '${_tasks.length}',
+                        'Tasks',
+                      ),
+                      _buildSettingsStat(
+                        Icons.pending_actions,
+                        '${_requests.length}',
+                        'Requests',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(height: 1, color: Colors.white.withOpacity(0.06)),
             ListTile(
-              leading: const Icon(Icons.edit_outlined),
+              leading: const Icon(Icons.edit_outlined, color: Colors.white54),
               title: const Text('Edit Workspace Name'),
               onTap: () {
                 Navigator.pop(context);
                 _showEditNameDialog();
               },
             ),
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: Colors.white.withOpacity(0.04),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.description_outlined,
+                color: Colors.white54,
+              ),
+              title: const Text('Edit Description'),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditDescriptionDialog();
+              },
+            ),
             if (widget.isOwner) ...[
+              Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                color: Colors.white.withOpacity(0.04),
+              ),
               ListTile(
-                leading: const Icon(Icons.image_outlined),
+                leading: const Icon(
+                  Icons.image_outlined,
+                  color: Colors.white54,
+                ),
                 title: const Text('Change Avatar'),
                 onTap: () {
                   Navigator.pop(context);
                   _showAvatarPicker();
                 },
               ),
+              Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                color: Colors.white.withOpacity(0.04),
+              ),
               ListTile(
-                leading: const Icon(Icons.person_add_outlined),
+                leading: const Icon(
+                  Icons.person_add_outlined,
+                  color: Colors.white54,
+                ),
                 title: const Text('Invite Member'),
                 onTap: () {
                   Navigator.pop(context);
                   _showAddMemberDialog();
                 },
+              ),
+              Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                color: Colors.white.withOpacity(0.04),
               ),
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
@@ -1434,8 +1565,82 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                 },
               ),
             ],
+            const SizedBox(height: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsStat(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: Colors.white.withOpacity(0.5)),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.4)),
+        ),
+      ],
+    );
+  }
+
+  void _showEditDescriptionDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Edit Description'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Enter workspace description',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                try {
+                  await _workspaceService.updateWorkspace(
+                    widget.workspaceId,
+                    description: controller.text.trim(),
+                  );
+                  if (mounted) Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Description updated!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }
