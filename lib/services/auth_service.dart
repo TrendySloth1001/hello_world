@@ -3,8 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth_response.dart';
 
+import '../config/api_config.dart';
+
 class AuthService {
-  static const String baseUrl = 'https://qjhcp0ph-3005.inc1.devtunnels.ms/auth';
+  static const String baseUrl = '${ApiConfig.baseUrl}/auth';
 
   Future<AuthResponse> signInWithGoogle(String? idToken) async {
     final response = await http.post(
