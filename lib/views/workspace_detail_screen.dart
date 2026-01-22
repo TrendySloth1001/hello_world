@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hello_world/models/user.dart';
 import '../services/workspace_service.dart';
 import '../services/task_service.dart';
 import '../models/workspace.dart';
@@ -261,11 +262,11 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         ),
         title: Text(
           member.user.email,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(color: Colors.white, fontSize: 11),
         ),
         subtitle: Text(
           member.position,
-          style: const TextStyle(color: Colors.amber, fontSize: 12),
+          style: const TextStyle(color: Colors.amber, fontSize: 10),
         ),
         trailing:
             widget.isOwner &&
@@ -418,15 +419,30 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
     if (task.priority == 'HIGH') priorityColor = Colors.red;
     if (task.priority == 'MEDIUM') priorityColor = Colors.orange;
 
+    // Progress
+    final subTasks = task.subTasks ?? [];
+    final completedCount = subTasks.where((s) => s.isCompleted).length;
+    final totalCount = subTasks.length;
+    final progress = totalCount > 0 ? completedCount / totalCount : 0.0;
+
+    // Assignees & Collaborators
+    final assignees =
+        task.assignments
+            ?.where((a) => a.role == 'ASSIGNEE' && a.status != 'REJECTED')
+            .toList() ??
+        [];
+    final collaborators =
+        task.assignments
+            ?.where((a) => a.role == 'COLLABORATOR' && a.status == 'ACCEPTED')
+            .toList() ??
+        [];
+
     return Card(
       color: const Color(0xFF1E1E1E),
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: priorityColor.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
+        side: BorderSide(color: priorityColor.withOpacity(0.3), width: 1.5),
       ),
       child: InkWell(
         onTap: () async {
@@ -439,7 +455,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
               ),
             ),
           );
-          _loadData(); // Refresh on return
+          _loadData();
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -447,7 +463,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Title and Avatar
+              // Header: Title and Avatar Stack
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -462,38 +478,61 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                       ),
                     ),
                   ),
-                  if (task.assignments != null && task.assignments!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12),
+                  const SizedBox(width: 12),
+                  // Avatar Logic
+                  if (task.isOpen && assignees.isEmpty)
+                    Tooltip(
+                      message: 'Open Task',
                       child: CircleAvatar(
                         radius: 12,
-                        backgroundColor: Colors.grey[800],
-                        backgroundImage:
-                            task.assignments![0].user?.avatarUrl != null
-                            ? NetworkImage(
-                                task.assignments![0].user!.avatarUrl!,
-                              )
-                            : null,
-                        child: task.assignments![0].user?.avatarUrl == null
-                            ? Text(
-                                task.assignments![0].user?.email[0]
-                                        .toUpperCase() ??
-                                    'U',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : null,
+                        backgroundColor: Colors.blue.withOpacity(0.2),
+                        child: const Icon(
+                          Icons.how_to_vote,
+                          size: 14,
+                          color: Colors.blue,
+                        ),
                       ),
+                    )
+                  else ...[
+                    Builder(
+                      builder: (context) {
+                        // Combine and take up to 3 avatars (Assignee + Collaborators)
+                        final usersToShow = [
+                          ...assignees.map((a) => a.user),
+                          ...collaborators.map((a) => a.user),
+                        ].whereType<User>().take(3).toList();
+
+                        if (usersToShow.isEmpty)
+                          return const SizedBox(height: 24);
+
+                        final double overlap = 14.0;
+                        final double avatarSize = 24.0;
+                        final double width =
+                            avatarSize + (usersToShow.length - 1) * overlap;
+
+                        return SizedBox(
+                          height: avatarSize,
+                          width: width,
+                          child: Stack(
+                            children: usersToShow.asMap().entries.map((entry) {
+                              return Positioned(
+                                left: entry.key * overlap,
+                                child: _buildSmallAvatar(entry.value),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
                     ),
+                  ],
                 ],
               ),
               const SizedBox(height: 6),
+
               // Description
               if (task.description != null && task.description!.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     task.description!,
                     maxLines: 2,
@@ -501,7 +540,39 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                     style: TextStyle(color: Colors.grey[400], fontSize: 13),
                   ),
                 ),
-              // Footer: Date, Comments, Priority Badge
+
+              // Progress Bar
+              if (totalCount > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: Colors.grey[800],
+                            valueColor: const AlwaysStoppedAnimation(
+                              Colors.green,
+                            ),
+                            minHeight: 4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$completedCount/$totalCount',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Footer
               Row(
                 children: [
                   if (task.dueDate != null) ...[
@@ -546,10 +617,10 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: priorityColor.withValues(alpha: 0.1),
+                      color: priorityColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: priorityColor.withValues(alpha: 0.3),
+                        color: priorityColor.withOpacity(0.3),
                         width: 1,
                       ),
                     ),
@@ -569,6 +640,28 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSmallAvatar(User? user) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF1E1E1E), width: 1.5),
+      ),
+      child: CircleAvatar(
+        radius: 12,
+        backgroundColor: Colors.grey[800],
+        backgroundImage: user?.avatarUrl != null
+            ? NetworkImage(user!.avatarUrl!)
+            : null,
+        child: user?.avatarUrl == null
+            ? Text(
+                user?.email[0].toUpperCase() ?? 'U',
+                style: const TextStyle(fontSize: 9, color: Colors.white),
+              )
+            : null,
       ),
     );
   }

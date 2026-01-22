@@ -29,6 +29,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isLoadingTask = true;
   bool _isLoadingComments = false;
   bool _isSendingComment = false;
+  bool _showAllHistory = false;
 
   // Pagination
   int _currentPage = 1;
@@ -1068,6 +1069,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final activities = _task!.activities ?? [];
     if (activities.isEmpty) return const SizedBox.shrink();
 
+    final displayActivities = _showAllHistory
+        ? activities
+        : activities.take(3).toList();
+    final hasMore = activities.length > 3;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1079,21 +1085,38 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'History',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'History',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (hasMore)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _showAllHistory = !_showAllHistory;
+                    });
+                  },
+                  child: Text(
+                    _showAllHistory ? 'View Less' : 'View More',
+                    style: const TextStyle(color: Colors.blue, fontSize: 12),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: activities.length,
+            itemCount: displayActivities.length,
             itemBuilder: (context, index) {
-              final activity = activities[index];
+              final activity = displayActivities[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
