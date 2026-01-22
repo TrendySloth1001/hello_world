@@ -175,4 +175,34 @@ class TaskService {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
+
+  Future<void> requestContribution(int taskId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/contribute'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<void> manageContribution(
+    int taskId,
+    int contributorId,
+    String action,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/contribute/manage'),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'contributorId': contributorId,
+        'action': action, // 'ACCEPT' or 'REJECT'
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
 }

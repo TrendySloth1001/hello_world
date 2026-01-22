@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
+import '../models/user.dart';
 import '../services/task_service.dart';
 import 'package:intl/intl.dart';
 
@@ -122,14 +123,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingComments = false);
-        // Silent fail or toast
       }
     }
   }
 
   Future<void> _addComment() async {
     if (_commentController.text.trim().isEmpty) return;
-
     setState(() => _isSendingComment = true);
     try {
       await _taskService.addComment(
@@ -142,8 +141,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _replyingToCommentId = null;
         _replyingToUserEmail = null;
       });
-
-      // Refresh comments from scratch to show the new one at the top
       await _loadComments(reset: true);
     } catch (e) {
       if (mounted) {
@@ -157,7 +154,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _toggleLike(int commentId) async {
-    // Optimistic Update
     final index = _comments.indexWhere((c) => c.id == commentId);
     if (index != -1) {
       setState(() {
@@ -179,11 +175,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         }
       });
     }
-
     try {
       await _taskService.toggleCommentLike(commentId);
     } catch (e) {
-      _loadComments(reset: true); // Revert on failure
+      _loadComments(reset: true);
     }
   }
 
@@ -204,7 +199,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       String? reason;
       if (status == 'REJECTED') {
-        // Show dialog
         final controller = TextEditingController();
         reason = await showDialog<String>(
           context: context,
@@ -235,9 +229,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  if (controller.text.trim().isNotEmpty) {
+                  if (controller.text.trim().isNotEmpty)
                     Navigator.pop(context, controller.text.trim());
-                  }
                 },
                 child: const Text(
                   'Reject',
@@ -255,13 +248,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         status,
         rejectionReason: reason,
       );
-
-      // Add comment if rejected
       if (status == 'REJECTED' && reason != null) {
         await _taskService.addComment(widget.taskId, "Rejected task: $reason");
         _loadComments(reset: true);
       }
-
       _loadTask();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -272,11 +262,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to respond: $e')));
-      }
     }
   }
 
@@ -284,20 +273,62 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await _taskService.claimTask(widget.taskId);
       _loadTask();
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Task Claimed!'),
             backgroundColor: Colors.green,
           ),
         );
-      }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to claim task: $e')));
-      }
+    }
+  }
+
+  Future<void> _requestContribution() async {
+    try {
+      await _taskService.requestContribution(widget.taskId);
+      _loadTask();
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Contribution Requested!'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
+  Future<void> _manageContribution(int contributorId, String action) async {
+    try {
+      await _taskService.manageContribution(
+        widget.taskId,
+        contributorId,
+        action,
+      );
+      _loadTask();
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Request ${action == 'ACCEPT' ? 'Accepted' : 'Rejected'}',
+            ),
+            backgroundColor: action == 'ACCEPT' ? Colors.green : Colors.red,
+          ),
+        );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 
@@ -390,11 +421,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               slivers: [
                 SliverToBoxAdapter(child: _buildTaskHeader()),
                 SliverToBoxAdapter(child: _buildAssignmentSection()),
+                SliverToBoxAdapter(child: _buildActivityLog()),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      'Comments', // Removed count as it might be misleading with pagination
+                      'Comments',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -408,12 +440,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     (context, index) {
                       if (index == _comments.length) {
                         return _isLoadingComments
-                            ? const Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
+                            ? const Center(child: CircularProgressIndicator())
                             : const SizedBox.shrink();
                       }
                       return _buildCommentItem(_comments[index]);
@@ -421,9 +448,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     childCount: _comments.length + (_isLoadingComments ? 1 : 0),
                   ),
                 ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 80),
-                ), // Space for input
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ),
           ),
@@ -445,7 +470,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Status Badge
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -463,57 +487,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             ),
           ),
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.grey[800],
-                backgroundImage: _task!.createdBy?.avatarUrl != null
-                    ? NetworkImage(_task!.createdBy!.avatarUrl!)
-                    : null,
-                child: _task!.createdBy?.avatarUrl == null
-                    ? Text(_task!.createdBy?.email[0].toUpperCase() ?? 'U')
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _task!.createdBy?.email ?? 'Unknown User',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    DateFormat(
-                      'MMM d, yyyy • h:mm a',
-                    ).format(_task!.createdAt.toLocal()),
-                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getPriorityColor(_task!.priority).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _getPriorityColor(_task!.priority)),
-                ),
-                child: Text(
-                  _task!.priority,
-                  style: TextStyle(
-                    color: _getPriorityColor(_task!.priority),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildUserRow(_task!.createdBy, 'Created by'),
           const SizedBox(height: 16),
           Text(
             _task!.title,
@@ -530,106 +504,222 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               style: const TextStyle(color: Colors.white70, fontSize: 16),
             ),
           ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildMetaItem(
+                Icons.flag_outlined,
+                'Priority',
+                _task!.priority,
+                _getPriorityColor(_task!.priority),
+              ),
+              const SizedBox(width: 24),
+              if (_task!.dueDate != null)
+                _buildMetaItem(
+                  Icons.calendar_today,
+                  'Due Date',
+                  DateFormat('MMM d').format(_task!.dueDate!),
+                  Colors.white,
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
+  Widget _buildUserRow(User? user, String subtitle) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 16,
+          backgroundColor: Colors.grey[800],
+          backgroundImage: user?.avatarUrl != null
+              ? NetworkImage(user!.avatarUrl!)
+              : null,
+          child: user?.avatarUrl == null
+              ? Text(user?.email[0].toUpperCase() ?? 'U')
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              user?.email ?? 'Unknown User',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetaItem(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(color: Colors.grey, fontSize: 10),
+            ),
+            Text(
+              value,
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildAssignmentSection() {
-    // Logic for showing assignment status / buttons
+    // Check if I am assigned (Primary or Collaborator)
     final myAssignment = _task!.assignments?.firstWhere(
       (a) => a.user?.id == widget.currentUserId,
       orElse: () => TaskAssignment(
         id: 0,
         taskId: 0,
         status: 'NONE',
+        role: 'ASSIGNEE',
         timestamp: DateTime.now(),
       ),
     );
-    // Be careful with the dummy object having no user
-    final isAssignedToMe =
-        myAssignment != null &&
-        myAssignment.status != 'NONE' &&
-        (myAssignment.id != 0);
+    final isAssignedToMe = myAssignment != null && (myAssignment.id != 0);
+    final amIAssignee =
+        isAssignedToMe &&
+        myAssignment!.role == 'ASSIGNEE' &&
+        myAssignment.status == 'ACCEPTED';
+    final amICreator = _task!.createdById == widget.currentUserId;
+    final canManage = amIAssignee || amICreator;
 
-    // 1. Pending Assignment Actions
-    if (isAssignedToMe && myAssignment?.status == 'PENDING') {
-      return Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.amber.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.amber.withOpacity(0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    // Filter Lists
+    final assignees =
+        _task!.assignments
+            ?.where((a) => a.role == 'ASSIGNEE' && a.status != 'REJECTED')
+            .toList() ??
+        [];
+    final collaborators =
+        _task!.assignments
+            ?.where((a) => a.role == 'COLLABORATOR' && a.status == 'ACCEPTED')
+            .toList() ??
+        [];
+    final pendingRequests =
+        _task!.assignments
+            ?.where((a) => a.role == 'COLLABORATOR' && a.status == 'PENDING')
+            .toList() ??
+        [];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'People',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Assignees
+          if (assignees.isNotEmpty) ...[
             const Text(
-              'Task Assigned to You',
-              style: TextStyle(
-                color: Colors.amber,
-                fontWeight: FontWeight.bold,
+              'Assignees',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            ...assignees.map((a) => _buildPersonItem(a)).toList(),
+            const SizedBox(height: 16),
+          ],
+
+          // Collaborators
+          if (collaborators.isNotEmpty) ...[
+            const Text(
+              'Collaborators',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            ...collaborators.map((a) => _buildPersonItem(a)).toList(),
+            const SizedBox(height: 16),
+          ],
+
+          // Pending Requests (Only visible to Manager)
+          if (canManage && pendingRequests.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pending Requests',
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...pendingRequests.map((a) => _buildRequestItem(a)).toList(),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please accept or reject this assignment.',
-              style: TextStyle(color: Colors.white70),
-            ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _respondToTask('REJECTED'),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.red.withOpacity(0.5)),
-                      foregroundColor: Colors.red,
-                    ),
-                    child: const Text('Reject'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _respondToTask('ACCEPTED'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Accept'),
-                  ),
-                ),
-              ],
+          ],
+
+          // Actions for Me
+          if (isAssignedToMe &&
+              myAssignment!.status == 'PENDING' &&
+              myAssignment.role == 'ASSIGNEE') ...[
+            // Pending Assignment Acceptance
+            _buildPendingAssignmentMsg(),
+          ] else if (!isAssignedToMe) ...[
+            // Contribute Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _requestContribution,
+                icon: const Icon(Icons.handshake_outlined),
+                label: const Text('Request to Contribute'),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.blue),
+              ),
+            ),
+          ] else if (isAssignedToMe &&
+              myAssignment!.status == 'PENDING' &&
+              myAssignment.role == 'COLLABORATOR') ...[
+            const Text(
+              'Contribution request pending...',
+              style: TextStyle(color: Colors.orange),
             ),
           ],
-        ),
-      );
-    }
 
-    // 2. Open Task Actions
-    if (_task!.isOpen) {
-      return Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.blue.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            const Text(
-              'Open Task',
-              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This task is open for anyone to claim.',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
+          // Claim Open Task
+          if (_task!.isOpen && !isAssignedToMe) ...[
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -642,17 +732,193 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             ),
           ],
-        ),
-      );
-    }
+        ],
+      ),
+    );
+  }
 
-    return const SizedBox.shrink();
+  Widget _buildPersonItem(TaskAssignment assignment) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundColor: Colors.grey[800],
+            backgroundImage: assignment.user?.avatarUrl != null
+                ? NetworkImage(assignment.user!.avatarUrl!)
+                : null,
+            child: assignment.user?.avatarUrl == null
+                ? Text(
+                    assignment.user?.email[0].toUpperCase() ?? 'U',
+                    style: const TextStyle(fontSize: 10),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            assignment.user?.email ?? 'Unknown',
+            style: const TextStyle(color: Colors.white),
+          ),
+          const Spacer(),
+          if (assignment.status == 'PENDING')
+            const Text(
+              'Pending',
+              style: TextStyle(color: Colors.orange, fontSize: 10),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestItem(TaskAssignment assignment) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Text(
+            assignment.user?.email ?? 'Unknown',
+            style: const TextStyle(color: Colors.white),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.check, color: Colors.green),
+            onPressed: () =>
+                _manageContribution(assignment.user?.id ?? 0, 'ACCEPT'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.red),
+            onPressed: () =>
+                _manageContribution(assignment.user?.id ?? 0, 'REJECT'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingAssignmentMsg() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'You were assigned this task',
+            style: TextStyle(color: Colors.blue),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _respondToTask('REJECTED'),
+                  child: const Text(
+                    'Reject',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _respondToTask('ACCEPTED'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                  ),
+                  child: const Text(
+                    'Accept',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityLog() {
+    final activities = _task!.activities ?? [];
+    if (activities.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white.withOpacity(0.05)),
+          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'History',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: activities.length,
+            itemBuilder: (context, index) {
+              final activity = activities[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.circle, size: 8, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: activity.user?.email ?? 'Unknown',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white70,
+                              ),
+                            ),
+                            TextSpan(text: ' ${activity.action} '),
+                            TextSpan(
+                              text: DateFormat(
+                                'MMM d, h:mm a',
+                              ).format(activity.timestamp.toLocal()),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCommentItem(Comment comment) {
     final isLiked = comment.likes.any((l) => l.userId == widget.currentUserId);
-    final likeCount = comment.likes.length;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -711,15 +977,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         color: isLiked ? Colors.red : Colors.grey[500],
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    if (likeCount > 0)
+                    if (comment.likes.isNotEmpty) ...[
+                      const SizedBox(width: 4),
                       Text(
-                        '$likeCount',
+                        '${comment.likes.length}',
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
-
+                    ],
                     const SizedBox(width: 24),
-
                     InkWell(
                       onTap: () =>
                           _startReply(comment.id, comment.user?.email ?? ''),
@@ -734,14 +999,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ],
                 ),
-                if (comment.replies != null && comment.replies!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Column(
-                      children: comment.replies!
-                          .map((reply) => _buildReplyItem(reply))
-                          .toList(),
-                    ),
+                if (comment.replies != null)
+                  Column(
+                    children: comment.replies!
+                        .map((r) => _buildReplyItem(r))
+                        .toList(),
                   ),
               ],
             ),
@@ -753,9 +1015,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Widget _buildReplyItem(Comment reply) {
     final isLiked = reply.likes.any((l) => l.userId == widget.currentUserId);
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -780,24 +1041,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 Row(
                   children: [
                     Text(
-                      reply.user?.email ?? 'Unknown',
+                      reply.user?.email ?? '',
                       style: const TextStyle(
                         color: Colors.white,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       _getTimeAgo(reply.createdAt),
-                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                      style: const TextStyle(color: Colors.grey, fontSize: 10),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
                 Text(
                   reply.content,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -808,6 +1068,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         isLiked ? Icons.favorite : Icons.favorite_border,
                         size: 14,
                         color: isLiked ? Colors.red : Colors.grey[500],
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    InkWell(
+                      onTap: () => _startReply(
+                        reply.parentId ?? reply.id,
+                        reply.user?.email ?? '',
+                      ),
+                      child: Text(
+                        'Reply',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -832,66 +1107,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         child: Column(
           children: [
             if (_replyingToCommentId != null)
-              Container(
-                padding: const EdgeInsets.only(bottom: 8),
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    Text(
-                      'Replying to ${_replyingToUserEmail ?? 'comment'}',
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                      onPressed: _cancelReply,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Replying to ${_replyingToUserEmail}',
+                    style: const TextStyle(color: Colors.blue),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey, size: 16),
+                    onPressed: _cancelReply,
+                  ),
+                ],
               ),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.blue,
-                  child: const Text(
-                    'Me',
-                    style: TextStyle(fontSize: 10, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _commentController,
                     style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: _replyingToCommentId != null
-                          ? 'Add a reply...'
-                          : 'Add a comment...',
-                      hintStyle: const TextStyle(color: Colors.grey),
+                    decoration: const InputDecoration(
+                      hintText: 'Add a comment...',
+                      hintStyle: TextStyle(color: Colors.grey),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
                     ),
-                    minLines: 1,
-                    maxLines: 4,
                   ),
                 ),
-                const SizedBox(width: 8),
                 IconButton(
                   onPressed: _isSendingComment ? null : _addComment,
-                  icon: _isSendingComment
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send_rounded, color: Colors.blue),
+                  icon: const Icon(Icons.send, color: Colors.blue),
                 ),
               ],
             ),
@@ -906,7 +1150,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     if (diff.inDays > 7) return DateFormat('MMM d').format(date);
     if (diff.inDays > 0) return '${diff.inDays}d';
     if (diff.inHours > 0) return '${diff.inHours}h';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m';
-    return 'now';
+    return '${diff.inMinutes}m';
   }
 }

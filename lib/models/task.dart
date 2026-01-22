@@ -9,6 +9,7 @@ class Task {
   final bool isOpen;
   final DateTime? dueDate;
   final DateTime createdAt;
+  final int createdById;
   final User? createdBy;
   final List<TaskAssignment>? assignments;
   final List<Comment>? comments;
@@ -24,6 +25,7 @@ class Task {
     this.isOpen = false,
     this.dueDate,
     required this.createdAt,
+    required this.createdById,
     this.createdBy,
     this.assignments,
     this.comments,
@@ -41,6 +43,7 @@ class Task {
       isOpen: json['isOpen'] ?? false,
       dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
       createdAt: DateTime.parse(json['createdAt']),
+      createdById: json['createdById'],
       createdBy: json['createdBy'] != null
           ? User.fromJson(json['createdBy'])
           : null,
@@ -67,6 +70,7 @@ class TaskAssignment {
   final int taskId;
   final User? user;
   final String status; // PENDING, ACCEPTED, REJECTED
+  final String role; // ASSIGNEE, COLLABORATOR
   final String? rejectionReason;
   final DateTime timestamp;
 
@@ -75,6 +79,7 @@ class TaskAssignment {
     required this.taskId,
     this.user,
     required this.status,
+    required this.role,
     this.rejectionReason,
     required this.timestamp,
   });
@@ -85,6 +90,7 @@ class TaskAssignment {
       taskId: json['taskId'],
       user: json['user'] != null ? User.fromJson(json['user']) : null,
       status: json['status'],
+      role: json['role'] ?? 'ASSIGNEE',
       rejectionReason: json['rejectionReason'],
       timestamp: DateTime.parse(
         json['updatedAt'],

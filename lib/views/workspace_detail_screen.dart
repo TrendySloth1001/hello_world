@@ -594,6 +594,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         id: 0,
         taskId: 0,
         status: 'NONE',
+        role: 'ASSIGNEE',
         timestamp: DateTime.now(),
       ),
     );
@@ -669,6 +670,7 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
           id: 0,
           taskId: 0,
           status: 'NONE',
+          role: 'ASSIGNEE',
           timestamp: DateTime.now(),
         ),
       );
