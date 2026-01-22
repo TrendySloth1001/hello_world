@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/workspace.dart';
+import '../config/api_config.dart';
 
 class WorkspaceService {
-  static const String baseUrl =
-      'https://qjhcp0ph-3005.inc1.devtunnels.ms/workspace';
+  static const String baseUrl = '${ApiConfig.baseUrl}/workspace';
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -222,7 +222,7 @@ class WorkspaceService {
   Future<InviteUser> searchUserByEmail(String email) async {
     final response = await http.get(
       Uri.parse(
-        'https://qjhcp0ph-3005.inc1.devtunnels.ms/user/search?email=$email',
+        '$baseUrl/user/search?email=$email',
       ),
       headers: await _getHeaders(),
     );
@@ -248,9 +248,7 @@ class WorkspaceService {
 
   Future<List<WorkspaceInvite>> getMyInvites() async {
     final response = await http.get(
-      Uri.parse(
-        'https://qjhcp0ph-3005.inc1.devtunnels.ms/workspace/user/invites',
-      ),
+      Uri.parse('$baseUrl/user/invites'),
       headers: await _getHeaders(),
     );
 
@@ -265,9 +263,7 @@ class WorkspaceService {
 
   Future<void> respondToInvite(int requestId, bool accept) async {
     final response = await http.post(
-      Uri.parse(
-        'https://qjhcp0ph-3005.inc1.devtunnels.ms/workspace/invites/$requestId/respond',
-      ),
+      Uri.parse('$baseUrl/invites/$requestId/respond'),
       headers: await _getHeaders(),
       body: jsonEncode({'accept': accept}),
     );
