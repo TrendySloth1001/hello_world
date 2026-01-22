@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
+
 class ProfileService {
-  static const String baseUrl =
-      'https://qjhcp0ph-3005.inc1.devtunnels.ms/profile';
+  static const String baseUrl = '${ApiConfig.baseUrl}/profile';
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
