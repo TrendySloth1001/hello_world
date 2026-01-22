@@ -502,141 +502,158 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child:
-                        workspace.avatarUrl != null &&
-                            workspace.avatarUrl!.isNotEmpty
-                        ? Image.network(
-                            workspace.avatarUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Center(
-                              child: Text(
-                                workspace.name.isNotEmpty
-                                    ? workspace.name[0].toUpperCase()
-                                    : 'W',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white38,
+                // Header: Avatar + Title + Role + Chevron
+                Row(
+                  children: [
+                    // Workspace Avatar
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child:
+                            workspace.avatarUrl != null &&
+                                workspace.avatarUrl!.isNotEmpty
+                            ? Image.network(
+                                workspace.avatarUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Text(
+                                    workspace.name.isNotEmpty
+                                        ? workspace.name[0].toUpperCase()
+                                        : 'W',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white38,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  workspace.name.isNotEmpty
+                                      ? workspace.name[0].toUpperCase()
+                                      : 'W',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white38,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        : Center(
-                            child: Text(
-                              workspace.name.isNotEmpty
-                                  ? workspace.name[0].toUpperCase()
-                                  : 'W',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white38,
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    // Title & Role
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              workspace.name,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            workspace.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 4),
+                          // Role Badge
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
+                              color: isOwner
+                                  ? Colors.blue.withOpacity(0.15)
+                                  : Colors.white.withOpacity(0.06),
                               borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isOwner
+                                    ? Colors.blue.withOpacity(0.3)
+                                    : Colors.transparent,
+                                width: 0.5,
+                              ),
                             ),
                             child: Text(
                               isOwner ? 'Owner' : 'Member',
                               style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.white.withOpacity(0.4),
+                                fontSize: 10,
+                                fontWeight: isOwner
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                                color: isOwner
+                                    ? Colors.blue[200]
+                                    : Colors.white.withOpacity(0.5),
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          // Member avatars
-                          SizedBox(
-                            width: _calculateStackWidth(workspace.memberCount),
-                            height: 30,
-                            child: Stack(
-                              children: _buildStackedAvatars(workspace),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${workspace.memberCount}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.35),
-                            ),
-                          ),
-                          if (workspace.description != null &&
-                              workspace.description!.isNotEmpty) ...[
-                            Container(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
-                              width: 1,
-                              height: 14,
-                              color: Colors.white.withOpacity(0.1),
-                            ),
-                            Expanded(
-                              child: Text(
-                                workspace.description!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withOpacity(0.35),
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ] else
-                            const Spacer(),
-                          Icon(
-                            Icons.chevron_right,
-                            size: 18,
-                            color: Colors.white.withOpacity(0.25),
-                          ),
-                        ],
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: Colors.white.withOpacity(0.2),
+                    ),
+                  ],
+                ),
+
+                // Description
+                if (workspace.description != null &&
+                    workspace.description!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 56,
+                    ), // Align with text start
+                    child: Text(
+                      workspace.description!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.5),
+                        height: 1.4,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+
+                // Footer: Avatars
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(left: 56),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: _calculateStackWidth(workspace.memberCount),
+                        height: 28,
+                        child: Stack(children: _buildStackedAvatars(workspace)),
+                      ),
+                      if (workspace.memberCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '${workspace.memberCount} members',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
