@@ -129,11 +129,29 @@ class TaskService {
     }
   }
 
-  Future<void> respondToTask(int taskId, String status) async {
+  Future<void> respondToTask(
+    int taskId,
+    String status, {
+    String? rejectionReason,
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/$taskId/respond'),
       headers: await _getHeaders(),
-      body: jsonEncode({'status': status}),
+      body: jsonEncode({
+        'status': status,
+        if (rejectionReason != null) 'rejectionReason': rejectionReason,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['message']);
+    }
+  }
+
+  Future<void> claimTask(int taskId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$taskId/claim'),
+      headers: await _getHeaders(),
     );
 
     if (response.statusCode != 200) {

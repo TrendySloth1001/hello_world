@@ -158,12 +158,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Future<void> _respondToTask(String status) async {
     try {
+      String? reason;
       if (status == 'REJECTED') {
-        final reason = await _showRejectDialog();
+        reason = await _showRejectDialog();
         if (reason == null) return; // Cancelled
+      }
+      await _taskService.respondToTask(
+        widget.taskId,
+        status,
+        rejectionReason: reason,
+      );
+
+      if (status == 'REJECTED' && reason != null) {
+        // Optionally add a comment automatically, though backend might not do it,
+        // the previous code did it on frontend.
+        // Let's keep the manual comment add if desired, or rely on backend activity logging.
+        // Previous code: await _taskService.addComment(widget.taskId, "Rejected task: $reason");
+        // Backend now stores reason in assignment.
+        // Let's explicitly add a comment so it's visible in chat too.
         await _taskService.addComment(widget.taskId, "Rejected task: $reason");
       }
-      await _taskService.respondToTask(widget.taskId, status);
+
       _loadTask();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -178,6 +193,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to respond: $e')));
+      }
+    }
+  }
+
+  Future<void> _claimTask() async {
+    try {
+      await _taskService.claimTask(widget.taskId);
+      _loadTask();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task Claimed!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to claim task: $e')));
       }
     }
   }
@@ -480,6 +516,49 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+
+                  // Claim Task Section
+                  if (_task!.isOpen) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Open Task',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'This task is open for anyone to claim.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _claimTask,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Claim Task'),
+                            ),
                           ),
                         ],
                       ),

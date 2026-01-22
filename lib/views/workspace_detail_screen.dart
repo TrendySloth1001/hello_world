@@ -4,6 +4,7 @@ import '../services/workspace_service.dart';
 import '../services/task_service.dart';
 import '../models/workspace.dart';
 import '../models/task.dart';
+import '../services/profile_service.dart'; // Add import
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -28,11 +29,13 @@ class WorkspaceDetailScreen extends StatefulWidget {
 class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
   final WorkspaceService _workspaceService = WorkspaceService();
   final TaskService _taskService = TaskService();
+  final ProfileService _profileService = ProfileService(); // Add ProfileService
 
   List<WorkspaceMember> _members = [];
   List<JoinRequest> _requests = [];
   List<Task> _tasks = [];
   bool _isLoading = true;
+  int? _currentUserId; // Add currentUserId
 
   @override
   void initState() {
@@ -42,6 +45,16 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+
+    // Load User Profile
+    try {
+      final profile = await _profileService.getProfile();
+      if (mounted) {
+        setState(() => _currentUserId = profile['id']);
+      }
+    } catch (e) {
+      debugPrint('Error loading profile: $e');
+    }
 
     // Load Members
     try {
@@ -346,217 +359,247 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         ),
       );
     }
-    return ListView.builder(
+    final openTasks = _tasks.where((t) => t.isOpen).toList();
+    final regularTasks = _tasks.where((t) => !t.isOpen).toList();
+
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: _tasks.length,
-      itemBuilder: (context, index) {
-        final task = _tasks[index];
-        final isDone = task.status == 'DONE';
-        final isOverdue =
-            task.dueDate != null &&
-            task.dueDate!.isBefore(DateTime.now()) &&
-            !isDone;
-
-        // Priority Color
-        Color priorityColor = Colors.blue;
-        if (task.priority == 'HIGH') priorityColor = Colors.red;
-        if (task.priority == 'MEDIUM') priorityColor = Colors.orange;
-
-        return Card(
-          color: const Color(0xFF1E1E1E),
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1,
+      children: [
+        if (openTasks.isNotEmpty) ...[
+          const Text(
+            'Open Tasks (Poll)',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ),
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TaskDetailScreen(
-                    taskId: task.id,
-                    currentUserId: 0, // Placeholder
-                  ),
-                ),
-              );
-              _loadData(); // Refresh on return
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+          const SizedBox(height: 8),
+          ...openTasks.map((task) => _buildTaskCard(task)),
+          const SizedBox(height: 24),
+          const Text(
+            'All Tasks',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (regularTasks.isEmpty && openTasks.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 48.0),
+              child: Column(
                 children: [
-                  // Priority Strip
-                  Container(
-                    width: 4,
-                    decoration: BoxDecoration(
-                      color: priorityColor,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header: Title and Avatar
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  task.title,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDone
-                                        ? Colors.white54
-                                        : Colors.white,
-                                    decoration: isDone
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                              if (task.assignments != null &&
-                                  task.assignments!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 12),
-                                  child: CircleAvatar(
-                                    radius: 12,
-                                    backgroundColor: Colors.grey[800],
-                                    backgroundImage:
-                                        task.assignments![0].user?.avatarUrl !=
-                                            null
-                                        ? NetworkImage(
-                                            task
-                                                .assignments![0]
-                                                .user!
-                                                .avatarUrl!,
-                                          )
-                                        : null,
-                                    child:
-                                        task.assignments![0].user?.avatarUrl ==
-                                            null
-                                        ? Text(
-                                            task.assignments![0].user?.email[0]
-                                                    .toUpperCase() ??
-                                                'U',
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          // Description
-                          if (task.description != null &&
-                              task.description!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                task.description!,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          // Footer: Date, Comments, Priority Badge
-                          Row(
-                            children: [
-                              if (task.dueDate != null) ...[
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 14,
-                                  color: isOverdue
-                                      ? Colors.red
-                                      : Colors.grey[500],
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _formatDate(task.dueDate!),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isOverdue
-                                        ? Colors.red
-                                        : Colors.grey[500],
-                                    fontWeight: isOverdue
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                              ],
-                              // Comments
-                              Icon(
-                                Icons.chat_bubble_outline,
-                                size: 14,
-                                color: task.commentCount > 0
-                                    ? Colors.amber
-                                    : Colors.grey[500],
-                              ),
-                              if (task.commentCount > 0) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${task.commentCount}',
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                              const Spacer(),
-                              // Priority Badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: priorityColor.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: priorityColor.withValues(alpha: 0.5),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  task.priority,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: priorityColor,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Icon(Icons.task_alt, size: 64, color: Colors.white24),
+                  SizedBox(height: 16),
+                  Text('No tasks yet', style: TextStyle(color: Colors.white54)),
                 ],
               ),
             ),
+          )
+        else
+          ...regularTasks.map((task) => _buildTaskCard(task)),
+      ],
+    );
+  }
+
+  Widget _buildTaskCard(Task task) {
+    final isDone = task.status == 'DONE';
+    final isOverdue =
+        task.dueDate != null &&
+        task.dueDate!.isBefore(DateTime.now()) &&
+        !isDone;
+
+    // Priority Color
+    Color priorityColor = Colors.blue;
+    if (task.priority == 'HIGH') priorityColor = Colors.red;
+    if (task.priority == 'MEDIUM') priorityColor = Colors.orange;
+
+    return Card(
+      color: const Color(0xFF1E1E1E),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+      ),
+      child: InkWell(
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TaskDetailScreen(
+                taskId: task.id,
+                currentUserId: _currentUserId ?? 0,
+              ),
+            ),
+          );
+          _loadData(); // Refresh on return
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Priority Strip
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: priorityColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    bottomLeft: Radius.circular(12),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header: Title and Avatar
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              task.title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDone ? Colors.white54 : Colors.white,
+                                decoration: isDone
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          if (task.assignments != null &&
+                              task.assignments!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12),
+                              child: CircleAvatar(
+                                radius: 12,
+                                backgroundColor: Colors.grey[800],
+                                backgroundImage:
+                                    task.assignments![0].user?.avatarUrl != null
+                                    ? NetworkImage(
+                                        task.assignments![0].user!.avatarUrl!,
+                                      )
+                                    : null,
+                                child:
+                                    task.assignments![0].user?.avatarUrl == null
+                                    ? Text(
+                                        task.assignments![0].user?.email[0]
+                                                .toUpperCase() ??
+                                            'U',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Description
+                      if (task.description != null &&
+                          task.description!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            task.description!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      // Footer: Date, Comments, Priority Badge
+                      Row(
+                        children: [
+                          if (task.dueDate != null) ...[
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: isOverdue ? Colors.red : Colors.grey[500],
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatDate(task.dueDate!),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isOverdue
+                                    ? Colors.red
+                                    : Colors.grey[500],
+                                fontWeight: isOverdue
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                          ],
+                          // Comments
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 14,
+                            color: task.commentCount > 0
+                                ? Colors.amber
+                                : Colors.grey[500],
+                          ),
+                          if (task.commentCount > 0) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '${task.commentCount}',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          // Priority Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: priorityColor.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: priorityColor.withValues(alpha: 0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              task.priority,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: priorityColor,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      _buildCardActions(task),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -569,6 +612,175 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
     if (checkDate == today) return 'Today';
     if (checkDate == tomorrow) return 'Tomorrow';
     return '${date.day}/${date.month}';
+  }
+
+  Widget _buildCardActions(Task task) {
+    if (task.isOpen) {
+      if (_currentUserId == null) return const SizedBox.shrink();
+
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => _claimTask(task.id),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Claim Task'),
+          ),
+        ),
+      );
+    }
+
+    final myAssignment = task.assignments?.firstWhere(
+      (a) => a.user?.id == _currentUserId,
+      orElse: () => TaskAssignment(
+        id: 0,
+        taskId: 0,
+        status: 'NONE',
+        timestamp: DateTime.now(),
+      ),
+    );
+
+    if (myAssignment != null &&
+        myAssignment.status == 'PENDING' &&
+        _currentUserId != null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _respondToTask(task.id, 'REJECTED'),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                  foregroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Reject'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _respondToTask(task.id, 'ACCEPTED'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Accept'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Future<void> _claimTask(int taskId) async {
+    try {
+      await _taskService.claimTask(taskId);
+      _loadData(); // Refresh list to update status
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task Claimed!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to claim task: $e')));
+      }
+    }
+  }
+
+  Future<void> _respondToTask(int taskId, String status) async {
+    try {
+      String? reason;
+      if (status == 'REJECTED') {
+        reason = await _showRejectDialog();
+        if (reason == null) return; // Cancelled
+      }
+      await _taskService.respondToTask(taskId, status, rejectionReason: reason);
+
+      if (status == 'REJECTED' && reason != null) {
+        await _taskService.addComment(taskId, "Rejected task: $reason");
+      }
+
+      _loadData(); // Refresh list
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Task $status'),
+            backgroundColor: status == 'ACCEPTED' ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to respond: $e')));
+      }
+    }
+  }
+
+  Future<String?> _showRejectDialog() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Reject Task', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Reason for rejection...',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                Navigator.pop(context, controller.text.trim());
+              }
+            },
+            child: const Text('Reject', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showAddMemberDialog() async {
