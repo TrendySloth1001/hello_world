@@ -47,6 +47,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   void initState() {
     super.initState();
     _displayConversationName = widget.conversationName;
+    _chatService.markAsRead(widget.conversationId, widget.currentUserId);
     _loadMessages();
 
     _webSocketService.initSocket();
@@ -232,15 +233,28 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               final newName = renameController.text.trim();
-              if (newName.isNotEmpty) {
-                setState(() {
-                  _displayConversationName = newName;
-                });
-                // TODO: Call API to persist rename
+              if (newName.isNotEmpty && newName != _displayConversationName) {
+                try {
+                  await _chatService.renameConversation(
+                    widget.conversationId,
+                    newName,
+                  );
+                  setState(() {
+                    _displayConversationName = newName;
+                  });
+                  if (mounted) Navigator.pop(context);
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to rename: $e')),
+                    );
+                  }
+                }
+              } else {
+                Navigator.pop(context);
               }
-              Navigator.pop(context);
             },
             child: const Text(
               'Save',

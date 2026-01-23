@@ -8,6 +8,7 @@ class Conversation {
   final List<ConversationMember> members;
   final Message? lastMessage;
   final DateTime updatedAt;
+  final int unreadCount;
 
   Conversation({
     required this.id,
@@ -16,6 +17,7 @@ class Conversation {
     required this.members,
     this.lastMessage,
     required this.updatedAt,
+    this.unreadCount = 0,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class Conversation {
       members: membersList,
       lastMessage: lastMsg,
       updatedAt: DateTime.parse(json['updatedAt']),
+      unreadCount: json['unreadCount'] ?? 0,
     );
   }
 

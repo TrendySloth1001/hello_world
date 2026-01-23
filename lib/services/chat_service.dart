@@ -128,4 +128,27 @@ class ChatService {
       throw Exception('Failed to toggle pin: ${response.body}');
     }
   }
+
+  Future<void> markAsRead(int conversationId, int userId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$conversationId/read'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to mark as read');
+    }
+  }
+
+  Future<void> renameConversation(int conversationId, String newName) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/$conversationId/rename'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'name': newName}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to rename conversation');
+    }
+  }
 }

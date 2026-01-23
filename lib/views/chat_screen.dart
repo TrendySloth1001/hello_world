@@ -269,6 +269,25 @@ class _ChatScreenState extends State<ChatScreen> {
                                     fontSize: 12,
                                   ),
                                 ),
+                                if (conversation.unreadCount > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade600,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '${conversation.unreadCount}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 if (isPinned)
                                   const Padding(
                                     padding: EdgeInsets.only(top: 4),
