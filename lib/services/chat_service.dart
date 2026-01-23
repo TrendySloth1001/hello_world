@@ -23,16 +23,24 @@ class ChatService {
 
   // Get all conversations for the current user
   Future<List<Conversation>> getConversations() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/conversations'),
-      headers: await _getHeaders(),
-    );
+    print('ChatService: Fetching conversations from $baseUrl/conversations');
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/conversations'),
+        headers: await _getHeaders(),
+      );
+      print('ChatService: Conversations response ${response.statusCode}');
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Conversation.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load conversations: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Conversation.fromJson(json)).toList();
+      } else {
+        print('ChatService Error: ${response.body}');
+        throw Exception('Failed to load conversations: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('ChatService Exception: $e');
+      rethrow;
     }
   }
 
