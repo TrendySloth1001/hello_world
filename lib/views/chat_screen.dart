@@ -39,6 +39,14 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         setState(() {
           _conversations = conversations;
+          // Sort: Pinned first, then by date
+          _conversations.sort((a, b) {
+            final aPinned = a.isPinnedBy(_currentUserId!);
+            final bPinned = b.isPinnedBy(_currentUserId!);
+            if (aPinned && !bPinned) return -1;
+            if (!aPinned && bPinned) return 1;
+            return b.updatedAt.compareTo(a.updatedAt);
+          });
           _isLoading = false;
         });
       }
@@ -50,6 +58,25 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading conversations: $e')),
         );
+      }
+    }
+  }
+
+  Future<void> _togglePin(Conversation conversation) async {
+    final isPinned = conversation.isPinnedBy(_currentUserId!);
+    try {
+      // Optimistic update
+      setState(() {
+        // We could manually sort here, but _fetchConversations calls generic sort
+      });
+
+      await _chatService.togglePin(conversation.id, !isPinned);
+      await _fetchConversations(); // Re-fetch to ensure sync and proper sort
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update pin: $e')));
       }
     }
   }
@@ -178,6 +205,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         itemBuilder: (context, index) {
                           final conversation = _conversations[index];
+                          final isPinned = conversation.isPinnedBy(
+                            _currentUserId ?? 0,
+                          );
                           final displayName = conversation.getDisplayName(
                             _currentUserId ?? 0,
                           );
@@ -228,12 +258,27 @@ class _ChatScreenState extends State<ChatScreen> {
                                 color: Colors.white.withOpacity(0.6),
                               ),
                             ),
-                            trailing: Text(
-                              _formatTime(conversation.updatedAt),
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.4),
-                                fontSize: 12,
-                              ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatTime(conversation.updatedAt),
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                if (isPinned)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 4),
+                                    child: Icon(
+                                      Icons.push_pin,
+                                      size: 14,
+                                      color: Colors.blueAccent,
+                                    ),
+                                  ),
+                              ],
                             ),
                             onTap: () {
                               Navigator.push(
@@ -249,6 +294,37 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ),
                                 ),
                               ).then((_) => _fetchConversations());
+                            },
+                            onLongPress: () {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: const Color(0xFF1E1E1E),
+                                builder: (context) => Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      leading: Icon(
+                                        isPinned
+                                            ? Icons.push_pin_outlined
+                                            : Icons.push_pin,
+                                        color: Colors.white,
+                                      ),
+                                      title: Text(
+                                        isPinned
+                                            ? 'Unpin Conversation'
+                                            : 'Pin Conversation',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _togglePin(conversation);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
                             },
                           );
                         },

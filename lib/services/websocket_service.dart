@@ -34,17 +34,56 @@ class WebSocketService {
     }
   }
 
-  void listenToMessages(Function(dynamic) onMessage) {
-    socket.on('new_message', (data) {
-      onMessage(data);
-    });
+  void listenToMessages(
+    Function(dynamic) onMessage, {
+    Function(dynamic)? onDelete,
+    Function(dynamic)? onReactionAdd,
+    Function(dynamic)? onReactionRemove,
+  }) {
+    socket.on('new_message', (data) => onMessage(data));
+    if (onDelete != null)
+      socket.on('message_deleted', (data) => onDelete(data));
+    if (onReactionAdd != null)
+      socket.on('reaction_added', (data) => onReactionAdd(data));
+    if (onReactionRemove != null)
+      socket.on('reaction_removed', (data) => onReactionRemove(data));
   }
 
-  void sendMessage(int conversationId, int senderId, String content) {
+  void sendMessage(
+    int conversationId,
+    int senderId,
+    String content, {
+    int? replyToId,
+  }) {
     socket.emit('send_message', {
       'conversationId': conversationId,
       'senderId': senderId,
       'content': content,
+      'replyToId': replyToId,
+    });
+  }
+
+  void deleteMessage(int messageId, int userId, bool forEveryone) {
+    socket.emit('delete_message', {
+      'messageId': messageId,
+      'userId': userId,
+      'forEveryone': forEveryone,
+    });
+  }
+
+  void addReaction(int messageId, int userId, String emoji) {
+    socket.emit('add_reaction', {
+      'messageId': messageId,
+      'userId': userId,
+      'emoji': emoji,
+    });
+  }
+
+  void removeReaction(int messageId, int userId, String emoji) {
+    socket.emit('remove_reaction', {
+      'messageId': messageId,
+      'userId': userId,
+      'emoji': emoji,
     });
   }
 

@@ -69,6 +69,16 @@ class Conversation {
     final otherUser = getOtherUser(currentUserId);
     return otherUser?.avatarUrl;
   }
+
+  // Helper to check if pinned by current user
+  bool isPinnedBy(int currentUserId) {
+    try {
+      final member = members.firstWhere((m) => m.userId == currentUserId);
+      return member.isPinned;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 class ConversationMember {
@@ -77,6 +87,7 @@ class ConversationMember {
   final int userId;
   final String? nickname;
   final User user;
+  final bool isPinned;
 
   ConversationMember({
     required this.id,
@@ -84,6 +95,7 @@ class ConversationMember {
     required this.userId,
     this.nickname,
     required this.user,
+    this.isPinned = false,
   });
 
   factory ConversationMember.fromJson(Map<String, dynamic> json) {
@@ -93,6 +105,7 @@ class ConversationMember {
       userId: json['userId'],
       nickname: json['nickname'],
       user: User.fromJson(json['user']),
+      isPinned: json['isPinned'] ?? false,
     );
   }
 }

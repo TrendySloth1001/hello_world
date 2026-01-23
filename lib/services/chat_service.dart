@@ -107,4 +107,17 @@ class ChatService {
       throw Exception('Failed to send message: ${response.body}');
     }
   }
+
+  // Toggle pin status
+  Future<void> togglePin(int conversationId, bool isPinned) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/$conversationId/pin'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'isPinned': isPinned}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to toggle pin: ${response.body}');
+    }
+  }
 }
