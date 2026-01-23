@@ -733,22 +733,39 @@ class _ConversationScreenState extends State<ConversationScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: ['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) {
+                final hasReacted = message.reactions.any(
+                  (r) => r.userId == widget.currentUserId && r.emoji == emoji,
+                );
+
                 return Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: GestureDetector(
                     onTap: () {
                       Navigator.pop(context);
-                      _webSocketService.addReaction(
-                        message.id,
-                        widget.currentUserId,
-                        emoji,
-                      );
+                      if (hasReacted) {
+                        _webSocketService.removeReaction(
+                          message.id,
+                          widget.currentUserId,
+                          emoji,
+                        );
+                      } else {
+                        _webSocketService.addReaction(
+                          message.id,
+                          widget.currentUserId,
+                          emoji,
+                        );
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: hasReacted
+                            ? Colors.blue.withOpacity(0.5)
+                            : Colors.white.withOpacity(0.1),
                         shape: BoxShape.circle,
+                        border: hasReacted
+                            ? Border.all(color: Colors.blue, width: 2)
+                            : null,
                       ),
                       child: Text(emoji, style: const TextStyle(fontSize: 24)),
                     ),

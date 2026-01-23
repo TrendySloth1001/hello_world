@@ -19,6 +19,11 @@ class _NewChatDialogState extends State<NewChatDialog> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nicknameController = TextEditingController();
 
+  // Group Chat State
+  bool _isGroupMode = false;
+  final TextEditingController _groupNameController = TextEditingController();
+  final List<InviteUser> _groupMembers = [];
+
   InviteUser? _foundUser;
   bool _isSearching = false;
   bool _isStartingChat = false;
@@ -28,6 +33,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
   void dispose() {
     _emailController.dispose();
     _nicknameController.dispose();
+    _groupNameController.dispose();
     super.dispose();
   }
 
@@ -71,40 +77,68 @@ class _NewChatDialogState extends State<NewChatDialog> {
   }
 
   Future<void> _startChat() async {
-    if (_foundUser == null) return;
+    if (!_isGroupMode && _foundUser == null) return;
+    if (_isGroupMode &&
+        (_groupMembers.isEmpty || _groupNameController.text.trim().isEmpty)) {
+      setState(() => _errorMessage = 'Please enter a name and add members');
+      return;
+    }
 
     setState(() => _isStartingChat = true);
 
     try {
-      // 1. Create/Get Direct Chat with Nickname
-      final nickname = _nicknameController.text.trim().isNotEmpty
-          ? _nicknameController.text.trim()
-          : null;
-
-      final conversation = await _chatService.getOrCreateDirectChat(
-        _foundUser!.id,
-        nickname: nickname,
-      );
-
-      // 2. Auto-send "Hey there!" if new
-      if (conversation.lastMessage == null) {
-        await _chatService.sendMessage(conversation.id, "Hey there!");
-      }
-
-      if (mounted) {
-        Navigator.pop(context); // Close dialog
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ConversationScreen(
-              conversationId: conversation.id,
-              conversationName: nickname ?? _foundUser!.email,
-              currentUserId: widget.currentUserId,
-              targetUserId: _foundUser!.id,
-              avatarUrl: _foundUser!.avatarUrl,
-            ),
-          ),
+      if (_isGroupMode) {
+        final conversation = await _chatService.createGroupChat(
+          _groupNameController.text.trim(),
+          _groupMembers.map((u) => u.id).toList(),
         );
+
+        if (mounted) {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConversationScreen(
+                conversationId: conversation.id,
+                conversationName: conversation.name ?? 'Group Chat',
+                currentUserId: widget.currentUserId,
+                // No target user ID for groups, or handle logic
+                // No avatar for now, backend might provide one
+              ),
+            ),
+          );
+        }
+      } else {
+        // Direct Chat
+        final nickname = _nicknameController.text.trim().isNotEmpty
+            ? _nicknameController.text.trim()
+            : null;
+
+        final conversation = await _chatService.getOrCreateDirectChat(
+          _foundUser!.id,
+          nickname: nickname,
+        );
+
+        // 2. Auto-send "Hey there!" if new
+        if (conversation.lastMessage == null) {
+          await _chatService.sendMessage(conversation.id, "Hey there!");
+        }
+
+        if (mounted) {
+          Navigator.pop(context); // Close dialog
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConversationScreen(
+                conversationId: conversation.id,
+                conversationName: nickname ?? _foundUser!.email,
+                currentUserId: widget.currentUserId,
+                targetUserId: _foundUser!.id,
+                avatarUrl: _foundUser!.avatarUrl,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -117,6 +151,26 @@ class _NewChatDialogState extends State<NewChatDialog> {
         );
       }
     }
+  }
+
+  void _addToGroup() {
+    if (_foundUser == null) return;
+    if (_groupMembers.any((m) => m.id == _foundUser!.id)) {
+      setState(() => _errorMessage = 'User already added');
+      return;
+    }
+    setState(() {
+      _groupMembers.add(_foundUser!);
+      _foundUser = null;
+      _emailController.clear();
+      _errorMessage = null;
+    });
+  }
+
+  void _removeFromGroup(InviteUser user) {
+    setState(() {
+      _groupMembers.removeWhere((m) => m.id == user.id);
+    });
   }
 
   @override
@@ -135,13 +189,12 @@ class _NewChatDialogState extends State<NewChatDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'New Chat',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  Row(
+                    children: [
+                      _buildTypeButton('Direct', false),
+                      const SizedBox(width: 12),
+                      _buildTypeButton('Group', true),
+                    ],
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -153,12 +206,66 @@ class _NewChatDialogState extends State<NewChatDialog> {
               ),
               const SizedBox(height: 24),
 
+              // Group Name Input
+              if (_isGroupMode) ...[
+                TextField(
+                  controller: _groupNameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Group Name',
+                    hintText: 'e.g. Project Team',
+                    prefixIcon: const Icon(Icons.group, color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (_groupMembers.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _groupMembers.map((user) {
+                      return Chip(
+                        avatar: CircleAvatar(
+                          backgroundColor: Colors.blue.shade900,
+                          child: Text(
+                            user.email[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        label: Text(
+                          user.email,
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                        backgroundColor: Colors.white,
+                        deleteIcon: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.black54,
+                        ),
+                        onDeleted: () => _removeFromGroup(user),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ],
+
               // Search Field
               TextField(
                 controller: _emailController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: 'Enter user email',
+                  labelText: _isGroupMode
+                      ? 'Add Member (Email)'
+                      : 'Enter user email',
                   hintText: 'user@example.com',
                   prefixIcon: const Icon(Icons.search, color: Colors.white54),
                   filled: true,
@@ -199,7 +306,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
                 ),
               ],
 
-              // Search Result
+              // Search Result (Found User)
               if (_foundUser != null) ...[
                 const SizedBox(height: 24),
                 Container(
@@ -242,30 +349,44 @@ class _NewChatDialogState extends State<NewChatDialog> {
                           ],
                         ),
                       ),
+                      if (_isGroupMode)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.person_add,
+                            color: Colors.blue,
+                          ),
+                          onPressed: _addToGroup,
+                        ),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                // Nickname Field
-                TextField(
-                  controller: _nicknameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Nickname (Optional)',
-                    hintText: 'e.g. Project Manager',
-                    prefixIcon: const Icon(Icons.edit, color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                // Nickname Field (Direct Only)
+                if (!_isGroupMode)
+                  TextField(
+                    controller: _nicknameController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Nickname (Optional)',
+                      hintText: 'e.g. Project Manager',
+                      prefixIcon: const Icon(Icons.edit, color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
+              ],
 
-                const SizedBox(height: 24),
+              const SizedBox(height: 24),
+
+              // Action Button
+              // In group mode, button is always visible (even if no user found currently), but disabled if validation fails
+              if (!_isGroupMode || (_isGroupMode && _foundUser == null))
                 ElevatedButton.icon(
                   onPressed: _isStartingChat ? null : _startChat,
                   style: ElevatedButton.styleFrom(
@@ -284,14 +405,47 @@ class _NewChatDialogState extends State<NewChatDialog> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Icon(Icons.send, color: Colors.white),
-                  label: const Text(
-                    'Send Message',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      : Icon(
+                          _isGroupMode ? Icons.group_add : Icons.send,
+                          color: Colors.white,
+                        ),
+                  label: Text(
+                    _isGroupMode ? 'Create Group' : 'Send Message',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeButton(String label, bool isGroup) {
+    final isSelected = _isGroupMode == isGroup;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isGroupMode = isGroup;
+          _errorMessage = null;
+          _foundUser = null;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: isSelected ? null : Border.all(color: Colors.white24),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
