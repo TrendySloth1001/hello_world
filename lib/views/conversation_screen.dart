@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import '../services/websocket_service.dart';
+
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ConversationScreen extends StatefulWidget {
   final int conversationId;
@@ -24,6 +27,7 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final ChatService _chatService = ChatService();
+  final WebSocketService _webSocketService = WebSocketService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -32,22 +36,40 @@ class _ConversationScreenState extends State<ConversationScreen> {
   List<Message> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
-  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _displayConversationName = widget.conversationName;
     _loadMessages();
-    // Start polling for new messages every 3 seconds
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      _loadMessages(showLoading: false);
+
+    _webSocketService.initSocket();
+    _webSocketService.joinConversation(widget.conversationId.toString());
+
+    _webSocketService.listenToMessages((data) {
+      if (mounted) {
+        // Convert dynamic map to Message object
+        try {
+          // The data might be a JSON Map from the socket event
+          final newMessage = Message.fromJson(data);
+          if (!_messages.any((m) => m.id == newMessage.id)) {
+            setState(() {
+              _messages.insert(0, newMessage);
+            });
+          }
+          // Scroll if needed, but since it's at the bottom (index 0 for reverse list), it should be fine.
+          // However, if the user scrolled up, we might not want to jump.
+          // For now, simple insertion is fine.
+        } catch (e) {
+          print('Error parsing message: $e');
+        }
+      }
     });
   }
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
+    _webSocketService.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -99,15 +121,25 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() => _isSending = true);
 
     try {
-      final newMessage = await _chatService.sendMessage(
+      // Optimistic UI Update
+      // We don't have the real ID yet, but we can generate a temporary one or rely on the socket event to update it.
+      // Ideally, the socket event comes back quickly.
+      // For now, let's just send it and let the socket listener handle the insertion.
+      // OR, we can insert a 'pending' message.
+
+      // Let's rely on the socket event for simplicity and avoiding ID collisions with the 'pending' approach for now,
+      // as the user is on a "Potato PC", simpler logic is better.
+      // The socket event usually arrives in <100ms.
+
+      _webSocketService.sendMessage(
         widget.conversationId,
+        widget.currentUserId,
         content,
       );
 
       if (mounted) {
         _messageController.clear();
         setState(() {
-          _messages.insert(0, newMessage); // Add to local list immediately
           _isSending = false;
         });
         _scrollToBottom();
@@ -282,23 +314,58 @@ class _ConversationScreenState extends State<ConversationScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.blue.shade900,
-              backgroundImage: message.sender?.avatarUrl != null
-                  ? NetworkImage(message.sender!.avatarUrl!)
-                  : null,
-              child: message.sender?.avatarUrl == null
-                  ? Text(
+            if (message.sender?.avatarUrl != null)
+              CachedNetworkImage(
+                imageUrl: message.sender!.avatarUrl!,
+                imageBuilder: (context, imageProvider) => CircleAvatar(
+                  radius: 16,
+                  backgroundImage: imageProvider,
+                  backgroundColor: Colors.blue.shade900,
+                ),
+                placeholder: (context, url) {
+                  // print('Loading avatar: $url');
+                  return CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.blue.shade900,
+                    child: const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
+                errorWidget: (context, url, error) {
+                  print('Error loading avatar ($url): $error');
+                  return CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.blue.shade900,
+                    child: Text(
                       (message.sender?.email ?? '?')[0].toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
-                    )
-                  : null,
-            ),
+                    ),
+                  );
+                },
+              )
+            else
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.blue.shade900,
+                child: Text(
+                  (message.sender?.email ?? '?')[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             const SizedBox(width: 8),
           ],
           Column(
