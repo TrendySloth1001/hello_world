@@ -11,6 +11,7 @@ class ConversationScreen extends StatefulWidget {
   final String conversationName;
   final int currentUserId;
   final int? targetUserId;
+  final String? avatarUrl;
 
   const ConversationScreen({
     super.key,
@@ -18,6 +19,7 @@ class ConversationScreen extends StatefulWidget {
     required this.conversationName,
     required this.currentUserId,
     this.targetUserId,
+    this.avatarUrl,
   });
 
   @override
@@ -194,6 +196,62 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
+  void _showRenameDialog() {
+    final TextEditingController renameController = TextEditingController(
+      text: _displayConversationName,
+    );
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1F2C34),
+        title: const Text(
+          'Rename Conversation',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: renameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Enter new name',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF00A884)),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF00A884)),
+            ),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF00A884)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              final newName = renameController.text.trim();
+              if (newName.isNotEmpty) {
+                setState(() {
+                  _displayConversationName = newName;
+                });
+                // TODO: Call API to persist rename
+              }
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Save',
+              style: TextStyle(color: Color(0xFF00A884)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // --- UI Building ---
 
   @override
@@ -205,19 +263,67 @@ class _ConversationScreenState extends State<ConversationScreen> {
         elevation: 0,
         title: Row(
           children: [
-            if (!_isSelectionMode) ...[
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.blue.shade800,
-                child: Text(
-                  _displayConversationName.isNotEmpty
-                      ? _displayConversationName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(fontSize: 14, color: Colors.white),
-                ),
+            InkWell(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Row(
+                children: [
+                  const Icon(Icons.arrow_back, color: Colors.white),
+                  const SizedBox(width: 4),
+                  if (!_isSelectionMode) ...[
+                    if (widget.avatarUrl != null)
+                      CachedNetworkImage(
+                        imageUrl: widget.avatarUrl!,
+                        imageBuilder: (context, imageProvider) => CircleAvatar(
+                          radius: 18,
+                          backgroundImage: imageProvider,
+                          backgroundColor: Colors.blue.shade800,
+                        ),
+                        placeholder: (context, url) => const CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.transparent,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.blue.shade800,
+                          child: Text(
+                            _displayConversationName.isNotEmpty
+                                ? _displayConversationName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.blue.shade800,
+                        child: Text(
+                          _displayConversationName.isNotEmpty
+                              ? _displayConversationName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 10),
-            ],
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,34 +334,23 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         : _displayConversationName,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (!_isSelectionMode && widget.targetUserId != null)
                     const Text(
                       'Online',
-                      style: TextStyle(color: Colors.greenAccent, fontSize: 12),
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                 ],
               ),
             ),
           ],
         ),
-        leading: _isSelectionMode
-            ? IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  setState(() {
-                    _isSelectionMode = false;
-                    _selectedMessageIds.clear();
-                  });
-                },
-              )
-            : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-              ),
+        leading: null, // Custom leading inside title
+        automaticallyImplyLeading: false,
         actions: [
           if (_isSelectionMode)
             IconButton(
@@ -263,11 +358,20 @@ class _ConversationScreenState extends State<ConversationScreen> {
               onPressed: _deleteSelectedMessages,
             )
           else
-            IconButton(
+            PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white),
-              onPressed: () {
-                // TODO: Conversation details / settings
+              color: const Color(0xFF1F2C34),
+              onSelected: (value) {
+                if (value == 'rename') {
+                  _showRenameDialog();
+                }
               },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'rename',
+                  child: Text('Rename', style: TextStyle(color: Colors.white)),
+                ),
+              ],
             ),
         ],
       ),
@@ -299,7 +403,38 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       itemBuilder: (context, index) {
                         final message = _messages[index];
                         final isMe = message.senderId == widget.currentUserId;
-                        return _buildMessageBubble(message, isMe);
+
+                        // Grouping Logic (Reverse list: compare with NEXT item for "previous" message in chronological order)
+                        // In reverse list: index + 1 is the OLDER message
+                        final prevMessage = (index + 1 < _messages.length)
+                            ? _messages[index + 1]
+                            : null;
+                        final nextMessage = (index - 1 >= 0)
+                            ? _messages[index - 1]
+                            : null;
+
+                        final bool isFirstInGroup =
+                            prevMessage == null ||
+                            prevMessage.senderId != message.senderId;
+                        final bool isLastInGroup =
+                            nextMessage == null ||
+                            nextMessage.senderId != message.senderId;
+
+                        // Spacing
+                        final double topSpacing = isFirstInGroup ? 8.0 : 2.0;
+
+                        return Padding(
+                          padding: EdgeInsets.only(top: topSpacing),
+                          child: _buildMessageBubble(
+                            message,
+                            isMe,
+                            showAvatar:
+                                !isMe &&
+                                isLastInGroup, // Show avatar only at the bottom of the group for incoming
+                            isLastInGroup: isLastInGroup,
+                            isFirstInGroup: isFirstInGroup,
+                          ),
+                        );
                       },
                     ),
             ),
@@ -310,9 +445,47 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
-  Widget _buildMessageBubble(Message message, bool isMe) {
+  Widget _buildMessageBubble(
+    Message message,
+    bool isMe, {
+    required bool showAvatar,
+    required bool isLastInGroup,
+    required bool isFirstInGroup,
+  }) {
     final isDeleted = message.isDeleted;
     final isSelected = _selectedMessageIds.contains(message.id);
+
+    // Principle #3: Kill noisy deleted messages
+    if (isDeleted) {
+      if (_isSelectionMode)
+        return const SizedBox.shrink(); // Hide deleted in selection mode if unwanted, or keep simple
+
+      return Container(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        margin: EdgeInsets.symmetric(
+          vertical: 2,
+          horizontal: isMe ? 0 : 40,
+        ), // Indent to align with text
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.block, size: 14, color: Colors.white.withOpacity(0.4)),
+            const SizedBox(width: 6),
+            Text(
+              "Message deleted",
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4),
+                fontStyle: FontStyle.italic,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Principle #4: Emoji = message, not decoration
+    final bool isEmojiOnly = _isEmojiOnly(message.content);
 
     Widget bubbleContent = GestureDetector(
       onLongPress: () {
@@ -322,157 +495,219 @@ class _ConversationScreenState extends State<ConversationScreen> {
       onTap: () {
         if (_isSelectionMode) {
           _toggleSelection(message.id);
-        } else {
-          // Tap action (e.g., toggle timestamp or message details)
         }
       },
       child: Container(
-        color: isSelected ? Colors.blue.withValues(alpha: 0.2) : null,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        color: isSelected ? Colors.blue.withOpacity(0.2) : null,
         child: Row(
           mainAxisAlignment: isMe
               ? MainAxisAlignment.end
               : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            // Checkbox for selection
             if (_isSelectionMode) ...[
               Checkbox(
                 value: isSelected,
                 onChanged: (val) => _toggleSelection(message.id),
-                activeColor: Colors.blue,
-                checkColor: Colors.white,
+                activeColor: Color(0xFF00A884),
+                checkColor: Colors.black,
                 side: const BorderSide(color: Colors.white54),
               ),
               const SizedBox(width: 8),
             ],
+
+            // Avatar Logic (Principle #2)
             if (!isMe) ...[
-              _buildAvatar(message.sender),
+              if (showAvatar)
+                _buildAvatar(message.sender)
+              else
+                const SizedBox(width: 32), // Preserve space for alignment
               const SizedBox(width: 8),
             ],
+
+            // Bubble
             Flexible(
-              child: Column(
-                crossAxisAlignment: isMe
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  // Reply Preview
-                  if (message.replyTo != null)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border(
-                          left: BorderSide(color: Colors.grey, width: 3),
+              child: isEmojiOnly
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        message.content,
+                        style: const TextStyle(fontSize: 40),
+                      ),
+                    )
+                  : Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: message.reactions.isNotEmpty && !isDeleted
+                                ? 12.0
+                                : 0,
+                          ),
+
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              // Principle #7: Colors & Contrast
+                              color: isMe
+                                  ? const Color(0xFF005C4B)
+                                  : const Color(0xFF202C33),
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(12),
+                                topRight: const Radius.circular(12),
+                                // Principle #1: Fewer visual rules
+                                bottomLeft: isMe
+                                    ? const Radius.circular(12)
+                                    : const Radius.circular(0),
+                                bottomRight: isMe
+                                    ? const Radius.circular(0)
+                                    : const Radius.circular(12),
+                              ),
+                            ),
+                            constraints: const BoxConstraints(maxWidth: 300),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Reply Preview
+                                if (message.replyTo != null)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 4),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: const Border(
+                                        left: BorderSide(
+                                          color: Color(0xFF00A884),
+                                          width: 4,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          message.replyTo?.sender?.email ??
+                                              'Sender',
+                                          style: const TextStyle(
+                                            color: Color(0xFF00A884),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          message.replyTo!.content,
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(
+                                              0.8,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        message.content,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Principle #6: Timestamps = subtle
+                                    Text(
+                                      _formatMessageTime(message.createdAt),
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.5),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        message.replyTo!.content,
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        // Floating Reactions Pill
+                        if (message.reactions.isNotEmpty && !isDeleted)
+                          Positioned(
+                            bottom: -4,
+                            left: !isMe ? 4 : null,
+                            right: isMe ? 4 : null,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1F2C34),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 2,
+                                ), // Cutout overlap
+                              ),
+                              child: Text(
+                                message.reactions
+                                    .map((r) => r.emoji)
+                                    .toSet()
+                                    .join(' '),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-
-                  // Message Text
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDeleted
-                          ? Colors.grey.withValues(alpha: 0.2)
-                          : (isMe
-                                ? Colors.blue
-                                : Colors.white.withValues(alpha: 0.1)),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: isMe
-                            ? const Radius.circular(16)
-                            : Radius.zero,
-                        bottomRight: isMe
-                            ? Radius.zero
-                            : const Radius.circular(16),
-                      ),
-                    ),
-                    constraints: const BoxConstraints(maxWidth: 240),
-                    child: Text(
-                      isDeleted
-                          ? "🚫 This message was deleted"
-                          : message.content,
-                      style: TextStyle(
-                        color: isDeleted ? Colors.white54 : Colors.white,
-                        fontSize: 15,
-                        fontStyle: isDeleted
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
-                    ),
-                  ),
-
-                  // Reactions
-                  if (message.reactions.isNotEmpty && !isDeleted)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2C2C2C),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        message.reactions.map((r) => r.emoji).toSet().join(' '),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatMessageTime(message.createdAt),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
       ),
     );
 
-    // Disable swipe in selection mode
-    if (_isSelectionMode || isDeleted) {
-      return bubbleContent;
-    }
+    if (_isSelectionMode) return bubbleContent;
 
     return Dismissible(
       key: ValueKey(message.id),
-      // If isMe (Right aligned): Swipe Left (EndToStart) to reply
-      // If !isMe (Left aligned): Swipe Right (StartToEnd) to reply
       direction: isMe
           ? DismissDirection.endToStart
           : DismissDirection.startToEnd,
       background: Container(
-        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        padding: EdgeInsets.only(left: isMe ? 0 : 20, right: isMe ? 20 : 0),
         color: Colors.transparent,
-        child: const Icon(Icons.reply, color: Colors.white70),
-      ),
+      ), // Invisible swipe background
       confirmDismiss: (direction) async {
         setState(() {
           _replyingTo = message;
         });
-        return false;
+        return false; // Don't actually dismiss
       },
       child: bubbleContent,
     );
+  }
+
+  bool _isEmojiOnly(String text) {
+    // Basic regex for emoji checking (simplified)
+    final RegExp emojiRegex = RegExp(
+      r'^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])+$',
+    );
+    return text.isNotEmpty &&
+        emojiRegex.hasMatch(text) &&
+        text.trim().length < 10;
   }
 
   void _showMessageOptions(Message message, bool isMe) {
@@ -615,95 +850,114 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0A0A),
-        border: Border(top: BorderSide(color: Colors.white10)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      color: Colors.black, // Ensure background matches
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (_replyingTo != null)
+          if (_replyingTo != null) ...[
+            // ... keys reply logic same, just ensure dark theme
             Container(
               padding: const EdgeInsets.all(8),
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: const Color(0xFF1F2C34),
                 borderRadius: BorderRadius.circular(8),
-                border: Border(left: BorderSide(color: Colors.blue, width: 3)),
+                border: const Border(
+                  left: BorderSide(color: Color(0xFF00A884), width: 4),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.reply, size: 16, color: Colors.blue),
+                  const Icon(Icons.reply, size: 16, color: Color(0xFF00A884)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      "Replying to: ${_replyingTo!.content}",
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _replyingTo?.sender?.email ?? 'Sender',
+                          style: const TextStyle(
+                            color: Color(0xFF00A884),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          _replyingTo?.content ?? '',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      size: 16,
-                      color: Colors.white54,
-                    ),
+                    icon: const Icon(Icons.close, size: 16, color: Colors.grey),
                     onPressed: () => setState(() => _replyingTo = null),
                   ),
                 ],
               ),
             ),
+          ],
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  textCapitalization: TextCapitalization.sentences,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Type a message...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  decoration: BoxDecoration(
+                    color: const Color(
+                      0xFF2A3942,
+                    ), // Lighter gray for better contrast
+                    borderRadius: BorderRadius.circular(24),
                   ),
-                  onSubmitted: (_) => _sendMessage(),
+                  child: TextField(
+                    controller: _messageController,
+                    maxLines: 6,
+                    minLines: 1,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    decoration: const InputDecoration(
+                      hintText: 'Message',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal:
+                            20, // Add padding so text doesn't touch edge
+                        vertical: 12,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setState(() {});
+                    },
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  onPressed: _isSending ? null : _sendMessage,
-                  icon: _isSending
+              GestureDetector(
+                onTap: _sendMessage,
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFF00A884), // WhatsApp Green
+                  child: _isSending
                       ? const SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 24,
+                          height: 24,
                           child: CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2,
                           ),
                         )
-                      : const Icon(
-                          Icons.send_rounded,
+                      : Icon(
+                          _messageController.text.trim().isEmpty
+                              ? Icons.mic
+                              : Icons.send,
                           color: Colors.white,
-                          size: 20,
                         ),
                 ),
               ),

@@ -101,6 +101,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
               conversationName: nickname ?? _foundUser!.email,
               currentUserId: widget.currentUserId,
               targetUserId: _foundUser!.id,
+              avatarUrl: _foundUser!.avatarUrl,
             ),
           ),
         );

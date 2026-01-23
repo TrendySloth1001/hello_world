@@ -291,6 +291,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     targetUserId: conversation
                                         .getOtherUser(_currentUserId!)
                                         ?.id,
+                                    avatarUrl: avatarUrl,
                                   ),
                                 ),
                               ).then((_) => _fetchConversations());
