@@ -43,6 +43,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Message? _replyingTo;
 
+  // Typing indicator state
+  bool _isOtherUserTyping = false;
+  Timer? _typingDebounce;
+  Timer? _stopTypingTimer;
+
+  // Online status
+  bool _isTargetUserOnline = false;
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +58,41 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _chatService.markAsRead(widget.conversationId, widget.currentUserId);
     _loadMessages();
 
-    _webSocketService.initSocket();
+    // Initialize Socket with callbacks
+    _webSocketService.initSocket(
+      widget.currentUserId,
+      onUserStatus: (userId, isOnline) {
+        if (mounted && userId == widget.targetUserId) {
+          setState(() {
+            _isTargetUserOnline = isOnline;
+          });
+        }
+      },
+      onTyping: (conversationId, userId, isTyping) {
+        if (mounted &&
+            conversationId == widget.conversationId &&
+            userId != widget.currentUserId) {
+          setState(() {
+            _isOtherUserTyping = isTyping;
+          });
+        }
+      },
+    );
+
+    // Initial check for online status if available immediately
+    if (widget.targetUserId != null) {
+      // Small delay to allow socket to connect and receive initial list
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _isTargetUserOnline = _webSocketService.isUserOnline(
+              widget.targetUserId!,
+            );
+          });
+        }
+      });
+    }
+
     _webSocketService.joinConversation(widget.conversationId.toString());
 
     _webSocketService.listenToMessages(
@@ -61,6 +103,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
             if (!_messages.any((m) => m.id == newMessage.id)) {
               setState(() {
                 _messages.insert(0, newMessage);
+                // If message received, they stopped typing effectively
+                if (newMessage.senderId != widget.currentUserId) {
+                  _isOtherUserTyping = false;
+                }
               });
             }
           } catch (e) {
@@ -129,10 +175,34 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   @override
   void dispose() {
+    _typingDebounce?.cancel();
+    _stopTypingTimer?.cancel();
     _webSocketService.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  bool _isTypingSelf = false;
+
+  void _handleTyping() {
+    // 1. Send "start typing" immediately if we haven't already marked ourselves as typing
+    if (!_isTypingSelf) {
+      _isTypingSelf = true;
+      _webSocketService.sendTyping(widget.conversationId, widget.currentUserId);
+    }
+
+    // 2. Debounce the "stop typing" event
+    // Any new keystroke resets the timer that would eventually say "I stopped"
+    if (_stopTypingTimer?.isActive ?? false) _stopTypingTimer!.cancel();
+
+    _stopTypingTimer = Timer(const Duration(seconds: 3), () {
+      _isTypingSelf = false;
+      _webSocketService.sendStopTyping(
+        widget.conversationId,
+        widget.currentUserId,
+      );
+    });
   }
 
   // --- Multi-select Logic ---
@@ -354,9 +424,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (!_isSelectionMode && widget.targetUserId != null)
-                    const Text(
-                      'Online',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    Text(
+                      _isOtherUserTyping
+                          ? 'Typing...'
+                          : (_isTargetUserOnline
+                                ? 'Online'
+                                : 'Offline'), // Simple status
+                      style: TextStyle(
+                        color: _isOtherUserTyping
+                            ? const Color(0xFF00A884) // Green for typing
+                            : Colors.white70,
+                        fontSize: 13,
+                        fontStyle: _isOtherUserTyping
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
                     ),
                 ],
               ),
@@ -935,6 +1017,42 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ),
             ),
           ],
+          if (_isOtherUserTyping)
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF202C33),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF00A884),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Typing...',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -964,6 +1082,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       ),
                     ),
                     onChanged: (val) {
+                      _handleTyping();
                       setState(() {});
                     },
                     onSubmitted: (_) => _sendMessage(),
