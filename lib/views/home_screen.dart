@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'notifications_screen.dart';
 import '../services/workspace_service.dart';
 
@@ -603,6 +604,30 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.copy,
+                        size: 18,
+                        color: Colors.white38,
+                      ),
+                      tooltip: 'Copy Workspace ID',
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(text: workspace.publicId),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Workspace ID copied: ${workspace.publicId}',
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                     ),
                     Icon(
                       Icons.chevron_right,
