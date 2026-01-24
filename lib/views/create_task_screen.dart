@@ -217,7 +217,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _priority,
+                              initialValue: _priority,
                               dropdownColor: const Color(0xFF2C2C2C),
                               style: const TextStyle(color: Colors.white),
                               decoration: const InputDecoration(
@@ -285,7 +285,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                           style: TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                         value: _isPrivate,
-                        activeColor: Colors.amber,
+                        activeThumbColor: Colors.amber,
                         onChanged: (val) => setState(() => _isPrivate = val),
                       ),
                       const SizedBox(height: 24),

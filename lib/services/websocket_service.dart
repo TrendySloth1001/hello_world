@@ -41,12 +41,15 @@ class WebSocketService {
     Function(dynamic)? onReactionRemove,
   }) {
     socket.on('new_message', (data) => onMessage(data));
-    if (onDelete != null)
+    if (onDelete != null) {
       socket.on('message_deleted', (data) => onDelete(data));
-    if (onReactionAdd != null)
+    }
+    if (onReactionAdd != null) {
       socket.on('reaction_added', (data) => onReactionAdd(data));
-    if (onReactionRemove != null)
+    }
+    if (onReactionRemove != null) {
       socket.on('reaction_removed', (data) => onReactionRemove(data));
+    }
   }
 
   void sendMessage(

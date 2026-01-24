@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:hello_world/views/home_screen.dart';
 import '../controllers/auth_controller.dart';
 import '../config/onboarding_config.dart';
 import 'main_shell.dart';

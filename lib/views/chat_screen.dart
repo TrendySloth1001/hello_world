@@ -3,7 +3,7 @@ import '../models/conversation.dart';
 import '../services/chat_service.dart';
 import '../controllers/auth_controller.dart';
 import 'conversation_screen.dart';
-import 'widgets/new_chat_dialog.dart';
+import 'widgets/new_chat_sheet.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -100,9 +100,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (!mounted) return;
 
-    showDialog(
+    if (!mounted) return;
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => NewChatDialog(currentUserId: _currentUserId!),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => NewChatSheet(currentUserId: _currentUserId!),
     ).then((_) => _fetchConversations());
   }
 
@@ -353,12 +357,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'chat_fab',
-        onPressed: _openNewChatDialog,
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

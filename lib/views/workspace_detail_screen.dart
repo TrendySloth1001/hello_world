@@ -208,15 +208,15 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
       color: Colors.white.withValues(alpha: 0.05),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundImage: request.user?.avatarUrl != null
-              ? NetworkImage(request.user!.avatarUrl!)
+          backgroundImage: request.user.avatarUrl != null
+              ? NetworkImage(request.user.avatarUrl!)
               : null,
-          child: request.user?.avatarUrl == null
-              ? Text(request.user?.email[0].toUpperCase() ?? '?')
+          child: request.user.avatarUrl == null
+              ? Text(request.user.email[0].toUpperCase() ?? '?')
               : null,
         ),
         title: Text(
-          request.user?.email ?? 'Unknown User',
+          request.user.email ?? 'Unknown User',
           style: const TextStyle(color: Colors.white),
         ),
         subtitle: const Text(
@@ -374,8 +374,9 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
         if (!isAssigned) return false;
       }
       if (_filterStatus != null && t.status != _filterStatus) return false;
-      if (_filterPriority != null && t.priority != _filterPriority)
+      if (_filterPriority != null && t.priority != _filterPriority) {
         return false;
+      }
       return true;
     }).toList();
   }
@@ -700,8 +701,9 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
                               ...collaborators.map((a) => a.user),
                             ].whereType<User>().take(3).toList();
 
-                            if (usersToShow.isEmpty)
+                            if (usersToShow.isEmpty) {
                               return const SizedBox(height: 24);
+                            }
 
                             final double overlap = 14.0;
                             final double avatarSize = 24.0;
@@ -1025,8 +1027,9 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
       }
     }
 
-    if (reasonWidget == null && buttonsWidget == null)
+    if (reasonWidget == null && buttonsWidget == null) {
       return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

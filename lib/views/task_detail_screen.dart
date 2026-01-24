@@ -234,8 +234,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  if (controller.text.trim().isNotEmpty)
+                  if (controller.text.trim().isNotEmpty) {
                     Navigator.pop(context, controller.text.trim());
+                  }
                 },
                 child: const Text(
                   'Reject',
@@ -267,10 +268,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to respond: $e')));
+      }
     }
   }
 
@@ -278,18 +280,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await _taskService.claimTask(widget.taskId);
       _loadTask();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Task Claimed!'),
             backgroundColor: Colors.green,
           ),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to claim task: $e')));
+      }
     }
   }
 
@@ -297,18 +301,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await _taskService.requestContribution(widget.taskId);
       _loadTask();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Contribution Requested!'),
             backgroundColor: Colors.blue,
           ),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
     }
   }
 
@@ -320,7 +326,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         action,
       );
       _loadTask();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -329,11 +335,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             backgroundColor: action == 'ACCEPT' ? Colors.green : Colors.red,
           ),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
     }
   }
 
@@ -348,10 +356,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _subTaskController.clear();
       _loadTask();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to add subtask: $e')));
+      }
     }
   }
 
@@ -360,10 +369,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       await _taskService.toggleSubTask(widget.taskId, subTaskId);
       _loadTask();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to update subtask: $e')));
+      }
     }
   }
 
@@ -372,10 +382,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       await _taskService.deleteSubTask(widget.taskId, subTaskId);
       _loadTask();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to delete subtask: $e')));
+      }
     }
   }
 
@@ -527,8 +538,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               : const SizedBox.shrink();
                         }
                         // Safety check
-                        if (index >= displayCount)
+                        if (index >= displayCount) {
                           return const SizedBox.shrink();
+                        }
 
                         return _buildCommentItem(_comments[index]);
                       },
@@ -697,7 +709,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final isAssignedToMe = myAssignment != null && (myAssignment.id != 0);
     final amIAssignee =
         isAssignedToMe &&
-        myAssignment!.role == 'ASSIGNEE' &&
+        myAssignment.role == 'ASSIGNEE' &&
         myAssignment.status == 'ACCEPTED';
     final amICreator = _task!.createdById == widget.currentUserId;
     final canManage = amIAssignee || amICreator;
@@ -760,7 +772,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
               const SizedBox(height: 8),
-              ...assignees.map((a) => _buildPersonItem(a)).toList(),
+              ...assignees.map((a) => _buildPersonItem(a)),
               const SizedBox(height: 16),
             ],
 
@@ -771,7 +783,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
               const SizedBox(height: 8),
-              ...collaborators.map((a) => _buildPersonItem(a)).toList(),
+              ...collaborators.map((a) => _buildPersonItem(a)),
               const SizedBox(height: 16),
             ],
 
@@ -797,7 +809,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     const SizedBox(height: 8),
                     ...pendingRequests
                         .map((a) => _buildRequestItem(a))
-                        .toList(),
+                        ,
                   ],
                 ),
               ),
@@ -806,7 +818,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
             // Actions for Me
             if (isAssignedToMe &&
-                myAssignment!.status == 'PENDING' &&
+                myAssignment.status == 'PENDING' &&
                 myAssignment.role == 'ASSIGNEE') ...[
               // Pending Assignment Acceptance
               _buildPendingAssignmentMsg(),
@@ -822,7 +834,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ),
               ),
             ] else if (isAssignedToMe &&
-                myAssignment!.status == 'PENDING' &&
+                myAssignment.status == 'PENDING' &&
                 myAssignment.role == 'COLLABORATOR') ...[
               const Text(
                 'Contribution request pending...',
@@ -1040,7 +1052,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               onChanged: canToggle
                                   ? (v) => _toggleSubTask(s.id)
                                   : null,
-                              fillColor: MaterialStateProperty.resolveWith(
+                              fillColor: WidgetStateProperty.resolveWith(
                                 (states) => s.isCompleted
                                     ? Colors.green
                                     : Colors.grey[800],
@@ -1085,7 +1097,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ),
               )
-              .toList(),
+              ,
 
           if (canEditStructure && subTasks.length < 20)
             Padding(
@@ -1458,7 +1470,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Row(
                 children: [
                   Text(
-                    'Replying to ${_replyingToUserEmail}',
+                    'Replying to $_replyingToUserEmail',
                     style: const TextStyle(color: Colors.blue),
                   ),
                   const Spacer(),

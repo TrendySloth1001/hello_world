@@ -1,5 +1,6 @@
 /// Configuration file for app assets and onboarding content.
 /// Edit this file to change onboarding text and asset paths.
+library;
 
 class AppAssets {
   // Onboarding GIFs

@@ -471,8 +471,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
     // Principle #3: Kill noisy deleted messages
     if (isDeleted) {
-      if (_isSelectionMode)
+      if (_isSelectionMode) {
         return const SizedBox.shrink(); // Hide deleted in selection mode if unwanted, or keep simple
+      }
 
       return Container(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -861,7 +862,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         errorWidget: (context, url, error) => CircleAvatar(
           radius: 16,
           backgroundColor: Colors.blue.shade900,
-          child: Text((sender!.email ?? '?')[0].toUpperCase()),
+          child: Text((sender.email ?? '?')[0].toUpperCase()),
         ),
       );
     }
