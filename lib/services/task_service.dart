@@ -1,25 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task.dart';
-
 import '../config/api_config.dart';
+import 'http_service.dart';
 
 class TaskService {
   static const String baseUrl = '${ApiConfig.baseUrl}/task';
-
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
+  final HttpService _httpService = HttpService();
 
   Future<Task> createTask({
     required int workspaceId,
@@ -30,9 +17,10 @@ class TaskService {
     List<int>? assigneeIds,
     bool isPrivate = false,
   }) async {
+    // Returns 201, so use raw http
     final response = await http.post(
       Uri.parse(baseUrl),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
       body: jsonEncode({
         'workspaceId': workspaceId,
         'title': title,
@@ -46,51 +34,34 @@ class TaskService {
 
     if (response.statusCode == 201) {
       return Task.fromJson(jsonDecode(response.body));
+    } else if (response.statusCode == 401) {
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
 
   Future<List<Task>> getWorkspaceTasks(int workspaceId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/workspace/$workspaceId'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/workspace/$workspaceId',
+      (data) => (data as List).map((e) => Task.fromJson(e)).toList(),
     );
-
-    if (response.statusCode == 200) {
-      return (jsonDecode(response.body) as List)
-          .map((e) => Task.fromJson(e))
-          .toList();
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<Task> getTaskDetails(int taskId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/$taskId'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/$taskId',
+      (data) => Task.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Task.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<Task> updateTask(int taskId, Map<String, dynamic> data) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/$taskId'),
-      headers: await _getHeaders(),
-      body: jsonEncode(data),
+    return await _httpService.put(
+      '$baseUrl/$taskId',
+      data,
+      (data) => Task.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Task.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<Comment> addComment(
@@ -103,30 +74,29 @@ class TaskService {
       body['parentId'] = parentId;
     }
 
+    // Returns 201, so use raw http
     final response = await http.post(
       Uri.parse('$baseUrl/$taskId/comments'),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
       body: jsonEncode(body),
     );
 
     if (response.statusCode == 201) {
       return Comment.fromJson(jsonDecode(response.body));
+    } else if (response.statusCode == 401) {
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
 
   Future<Map<String, dynamic>> toggleCommentLike(int commentId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/comments/$commentId/like'),
-      headers: await _getHeaders(),
+    return await _httpService.post(
+      '$baseUrl/comments/$commentId/like',
+      {},
+      (data) => data as Map<String, dynamic>,
     );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> respondToTask(
@@ -134,29 +104,22 @@ class TaskService {
     String status, {
     String? rejectionReason,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$taskId/respond'),
-      headers: await _getHeaders(),
-      body: jsonEncode({
+    await _httpService.post(
+      '$baseUrl/$taskId/respond',
+      {
         'status': status,
         if (rejectionReason != null) 'rejectionReason': rejectionReason,
-      }),
+      },
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> claimTask(int taskId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$taskId/claim'),
-      headers: await _getHeaders(),
+    await _httpService.post(
+      '$baseUrl/$taskId/claim',
+      {},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<Map<String, dynamic>> getComments(
@@ -164,25 +127,25 @@ class TaskService {
     int page = 1,
     int limit = 20,
   }) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/$taskId/comments?page=$page&limit=$limit'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/$taskId/comments?page=$page&limit=$limit',
+      (data) => data as Map<String, dynamic>,
     );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> requestContribution(int taskId) async {
+    // Returns 201, so use raw http
     final response = await http.post(
       Uri.parse('$baseUrl/$taskId/contribute'),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
     );
 
-    if (response.statusCode != 201) {
+    if (response.statusCode == 201) {
+      return;
+    } else if (response.statusCode == 401) {
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
+    } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
@@ -192,55 +155,46 @@ class TaskService {
     int contributorId,
     String action,
   ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$taskId/contribute/manage'),
-      headers: await _getHeaders(),
-      body: jsonEncode({
+    await _httpService.post(
+      '$baseUrl/$taskId/contribute/manage',
+      {
         'contributorId': contributorId,
-        'action': action, // 'ACCEPT' or 'REJECT'
-      }),
+        'action': action,
+      },
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<SubTask> addSubTask(int taskId, String title) async {
+    // Returns 201, so use raw http
     final response = await http.post(
       Uri.parse('$baseUrl/$taskId/subtasks'),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
       body: jsonEncode({'title': title}),
     );
 
     if (response.statusCode == 201) {
       return SubTask.fromJson(jsonDecode(response.body));
+    } else if (response.statusCode == 401) {
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
 
   Future<SubTask> toggleSubTask(int taskId, int subTaskId) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/$taskId/subtasks/$subTaskId/toggle'),
-      headers: await _getHeaders(),
+    return await _httpService.put(
+      '$baseUrl/$taskId/subtasks/$subTaskId/toggle',
+      {},
+      (data) => SubTask.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return SubTask.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> deleteSubTask(int taskId, int subTaskId) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/$taskId/subtasks/$subTaskId'),
-      headers: await _getHeaders(),
+    await _httpService.delete(
+      '$baseUrl/$taskId/subtasks/$subTaskId',
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 }

@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 import 'views/onboarding_screen.dart';
 import 'views/main_shell.dart';
+import 'views/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/http_service.dart';
 import 'theme/app_theme.dart';
 
+// Global navigator key for navigation from anywhere
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
+  // Set up automatic logout handler for token expiration
+  HttpService.onUnauthorized = () {
+    // Navigate to login screen when token expires
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  };
+
   runApp(const MyApp());
 }
 
@@ -14,6 +28,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'TaskFlow',
       theme: AppTheme.darkTheme,
       home: const AuthWrapper(),

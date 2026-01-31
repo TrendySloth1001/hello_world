@@ -1,43 +1,20 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
+import 'http_service.dart';
 
 class ChatService {
   static const String baseUrl = '${ApiConfig.baseUrl}/chat';
-
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
+  final HttpService _httpService = HttpService();
 
   // Get all conversations for the current user
   Future<List<Conversation>> getConversations() async {
     print('ChatService: Fetching conversations from $baseUrl/conversations');
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/conversations'),
-        headers: await _getHeaders(),
+      return await _httpService.get(
+        '$baseUrl/conversations',
+        (data) => (data as List).map((json) => Conversation.fromJson(json)).toList(),
       );
-      print('ChatService: Conversations response ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Conversation.fromJson(json)).toList();
-      } else {
-        print('ChatService Error: ${response.body}');
-        throw Exception('Failed to load conversations: ${response.statusCode}');
-      }
     } catch (e) {
       print('ChatService Exception: $e');
       rethrow;
@@ -49,32 +26,20 @@ class ChatService {
     int targetUserId, {
     String? nickname,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/direct'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'targetId': targetUserId, 'nickname': nickname}),
+    return await _httpService.post(
+      '$baseUrl/direct',
+      {'targetId': targetUserId, 'nickname': nickname},
+      (data) => Conversation.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Conversation.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to create chat: ${response.body}');
-    }
   }
 
   // Create group chat
   Future<Conversation> createGroupChat(String name, List<int> memberIds) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/group'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'name': name, 'memberIds': memberIds}),
+    return await _httpService.post(
+      '$baseUrl/group',
+      {'name': name, 'memberIds': memberIds},
+      (data) => Conversation.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Conversation.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to create group chat: ${response.body}');
-    }
   }
 
   // Get messages for a conversation
@@ -88,67 +53,43 @@ class ChatService {
       url += '&cursor=$cursor';
     }
 
-    final response = await http.get(
-      Uri.parse(url),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      url,
+      (data) => (data as List).map((json) => Message.fromJson(json)).toList(),
     );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Message.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load messages: ${response.statusCode}');
-    }
   }
 
   // Send a message
   Future<Message> sendMessage(int conversationId, String content) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$conversationId/messages'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'content': content}),
+    return await _httpService.post(
+      '$baseUrl/$conversationId/messages',
+      {'content': content},
+      (data) => Message.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Message.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to send message: ${response.body}');
-    }
   }
 
   // Toggle pin status
   Future<void> togglePin(int conversationId, bool isPinned) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$conversationId/pin'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'isPinned': isPinned}),
+    await _httpService.post(
+      '$baseUrl/$conversationId/pin',
+      {'isPinned': isPinned},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to toggle pin: ${response.body}');
-    }
   }
 
   Future<void> markAsRead(int conversationId, int userId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$conversationId/read'),
-      headers: await _getHeaders(),
+    await _httpService.post(
+      '$baseUrl/$conversationId/read',
+      {},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to mark as read');
-    }
   }
 
   Future<void> renameConversation(int conversationId, String newName) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/$conversationId/rename'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'name': newName}),
+    await _httpService.put(
+      '$baseUrl/$conversationId/rename',
+      {'name': newName},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to rename conversation');
-    }
   }
 }

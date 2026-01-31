@@ -1,65 +1,46 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/workspace.dart';
 import '../config/api_config.dart';
+import 'http_service.dart';
 
 class WorkspaceService {
   static const String baseUrl = '${ApiConfig.baseUrl}/workspace';
-
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
+  final HttpService _httpService = HttpService();
 
   // ==================== WORKSPACE CRUD ====================
 
   Future<Workspace> createWorkspace(String name, String? description) async {
+    // Note: Create returns 201, so we need to use raw http for this one
     final response = await http.post(
       Uri.parse(baseUrl),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
       body: jsonEncode({'name': name, 'description': description}),
     );
 
     if (response.statusCode == 201) {
       return Workspace.fromJson(jsonDecode(response.body));
+    } else if (response.statusCode == 401) {
+      // Handle token expiration
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
 
   Future<UserWorkspaces> getMyWorkspaces() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/my'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/my',
+      (data) => UserWorkspaces.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return UserWorkspaces.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<Workspace> getWorkspaceByPublicId(String publicId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/public/$publicId'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/public/$publicId',
+      (data) => Workspace.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Workspace.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<Workspace> updateWorkspace(
@@ -67,102 +48,73 @@ class WorkspaceService {
     String? name,
     String? description,
   }) async {
-    // Only include fields that are actually provided
     final Map<String, dynamic> body = {};
     if (name != null) body['name'] = name;
     if (description != null) body['description'] = description;
 
-    final response = await http.put(
-      Uri.parse('$baseUrl/$id'),
-      headers: await _getHeaders(),
-      body: jsonEncode(body),
+    return await _httpService.put(
+      '$baseUrl/$id',
+      body,
+      (data) => Workspace.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return Workspace.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> deleteWorkspace(int id) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/$id'),
-      headers: await _getHeaders(),
+    await _httpService.delete(
+      '$baseUrl/$id',
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   // ==================== JOIN REQUESTS ====================
 
   Future<JoinRequest> requestToJoin(String publicId) async {
+    // Returns 201, so use raw http
     final response = await http.post(
       Uri.parse('$baseUrl/public/$publicId/request'),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
     );
 
     if (response.statusCode == 201) {
       return JoinRequest.fromJson(jsonDecode(response.body));
+    } else if (response.statusCode == 401) {
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
     } else {
       throw Exception(jsonDecode(response.body)['message']);
     }
   }
 
   Future<List<JoinRequest>> getJoinRequests(int workspaceId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/$workspaceId/requests'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/$workspaceId/requests',
+      (data) => (data as List).map((e) => JoinRequest.fromJson(e)).toList(),
     );
-
-    if (response.statusCode == 200) {
-      return (jsonDecode(response.body) as List)
-          .map((e) => JoinRequest.fromJson(e))
-          .toList();
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> acceptJoinRequest(int workspaceId, int requestId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$workspaceId/requests/$requestId/accept'),
-      headers: await _getHeaders(),
+    await _httpService.post(
+      '$baseUrl/$workspaceId/requests/$requestId/accept',
+      {},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> rejectJoinRequest(int workspaceId, int requestId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/$workspaceId/requests/$requestId/reject'),
-      headers: await _getHeaders(),
+    await _httpService.post(
+      '$baseUrl/$workspaceId/requests/$requestId/reject',
+      {},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   // ==================== MEMBER MANAGEMENT ====================
 
   Future<List<WorkspaceMember>> getMembers(int workspaceId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/$workspaceId/members'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/$workspaceId/members',
+      (data) => (data as List).map((e) => WorkspaceMember.fromJson(e)).toList(),
     );
-
-    if (response.statusCode == 200) {
-      return (jsonDecode(response.body) as List)
-          .map((e) => WorkspaceMember.fromJson(e))
-          .toList();
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<WorkspaceMember> updateMemberPosition(
@@ -170,93 +122,60 @@ class WorkspaceService {
     int userId,
     String position,
   ) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/$workspaceId/members/$userId'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'position': position}),
+    return await _httpService.put(
+      '$baseUrl/$workspaceId/members/$userId',
+      {'position': position},
+      (data) => WorkspaceMember.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      return WorkspaceMember.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> kickMember(int workspaceId, int userId) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/$workspaceId/members/$userId'),
-      headers: await _getHeaders(),
+    await _httpService.delete(
+      '$baseUrl/$workspaceId/members/$userId',
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   // ==================== AVATAR MANAGEMENT ====================
 
   Future<List<String>> getWorkspaceAvatarPresets() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/avatars'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/avatars',
+      (data) => List<String>.from(data['avatars']),
     );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return List<String>.from(data['avatars']);
-    } else {
-      throw Exception('Failed to load avatars');
-    }
   }
 
   Future<void> updateWorkspaceAvatar(int workspaceId, String avatarUrl) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/$workspaceId/avatar'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'avatarUrl': avatarUrl}),
+    await _httpService.put(
+      '$baseUrl/$workspaceId/avatar',
+      {'avatarUrl': avatarUrl},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   // ==================== INVITE SYSTEM ====================
 
   Future<InviteUser> searchUserByEmail(String email) async {
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/user/search?email=$email'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '${ApiConfig.baseUrl}/user/search?email=$email',
+      (data) => InviteUser.fromJson(data),
     );
-
-    if (response.statusCode == 200) {
-      try {
-        return InviteUser.fromJson(jsonDecode(response.body));
-      } on FormatException {
-        throw Exception(
-          'Server returned invalid response: ${response.body.substring(0, 50)}...',
-        );
-      }
-    } else {
-      try {
-        throw Exception(jsonDecode(response.body)['message']);
-      } on FormatException {
-        throw Exception(
-          'Server returned invalid error: ${response.body.substring(0, 50)}...',
-        );
-      }
-    }
   }
 
   Future<void> inviteUser(int workspaceId, String email) async {
+    // Returns 201, so use raw http
     final response = await http.post(
       Uri.parse('$baseUrl/$workspaceId/invite'),
-      headers: await _getHeaders(),
+      headers: await _httpService.getHeaders(),
       body: jsonEncode({'email': email}),
     );
 
-    if (response.statusCode != 201) {
+    if (response.statusCode == 201) {
+      return;
+    } else if (response.statusCode == 401) {
+      await _httpService.handleResponse(response, (data) => data);
+      throw Exception('Session expired');
+    } else {
       try {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Unknown error');
@@ -269,29 +188,17 @@ class WorkspaceService {
   }
 
   Future<List<WorkspaceInvite>> getMyInvites() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/user/invites'),
-      headers: await _getHeaders(),
+    return await _httpService.get(
+      '$baseUrl/user/invites',
+      (data) => (data as List).map((e) => WorkspaceInvite.fromJson(e)).toList(),
     );
-
-    if (response.statusCode == 200) {
-      return (jsonDecode(response.body) as List)
-          .map((e) => WorkspaceInvite.fromJson(e))
-          .toList();
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 
   Future<void> respondToInvite(int requestId, bool accept) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/invites/$requestId/respond'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'accept': accept}),
+    await _httpService.post(
+      '$baseUrl/invites/$requestId/respond',
+      {'accept': accept},
+      (data) => null,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
-    }
   }
 }
