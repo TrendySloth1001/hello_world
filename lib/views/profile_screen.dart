@@ -296,6 +296,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'Signed in with ${_profile?['authProvider'] == 'google' ? 'Google' : 'Email'}',
             style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
+          const SizedBox(height: 16),
+          // Last Login
+          if (_profile?['lastLogin'] != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.access_time,
+                    size: 16,
+                    color: Colors.white54,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Last login: ${_formatDateTime(_profile!['lastLogin'])}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 48),
           // Settings
           _buildSettingsTile(
@@ -312,6 +341,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDateTime(String dateTimeStr) {
+    try {
+      final dateTime = DateTime.parse(dateTimeStr);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 1) {
+        return 'Just now';
+      } else if (difference.inHours < 1) {
+        return '${difference.inMinutes}m ago';
+      } else if (difference.inDays < 1) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}d ago';
+      } else {
+        // Format as date
+        final months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+        return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
   }
 
   Widget _buildSettingsTile({
