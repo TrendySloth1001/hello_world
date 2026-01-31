@@ -13,7 +13,8 @@ class ChatService {
     try {
       return await _httpService.get(
         '$baseUrl/conversations',
-        (data) => (data as List).map((json) => Conversation.fromJson(json)).toList(),
+        (data) =>
+            (data as List).map((json) => Conversation.fromJson(json)).toList(),
       );
     } catch (e) {
       print('ChatService Exception: $e');
@@ -26,20 +27,18 @@ class ChatService {
     int targetUserId, {
     String? nickname,
   }) async {
-    return await _httpService.post(
-      '$baseUrl/direct',
-      {'targetId': targetUserId, 'nickname': nickname},
-      (data) => Conversation.fromJson(data),
-    );
+    return await _httpService.post('$baseUrl/direct', {
+      'targetId': targetUserId,
+      'nickname': nickname,
+    }, (data) => Conversation.fromJson(data));
   }
 
   // Create group chat
   Future<Conversation> createGroupChat(String name, List<int> memberIds) async {
-    return await _httpService.post(
-      '$baseUrl/group',
-      {'name': name, 'memberIds': memberIds},
-      (data) => Conversation.fromJson(data),
-    );
+    return await _httpService.post('$baseUrl/group', {
+      'name': name,
+      'memberIds': memberIds,
+    }, (data) => Conversation.fromJson(data));
   }
 
   // Get messages for a conversation
@@ -61,20 +60,16 @@ class ChatService {
 
   // Send a message
   Future<Message> sendMessage(int conversationId, String content) async {
-    return await _httpService.post(
-      '$baseUrl/$conversationId/messages',
-      {'content': content},
-      (data) => Message.fromJson(data),
-    );
+    return await _httpService.post('$baseUrl/$conversationId/messages', {
+      'content': content,
+    }, (data) => Message.fromJson(data));
   }
 
   // Toggle pin status
   Future<void> togglePin(int conversationId, bool isPinned) async {
-    await _httpService.post(
-      '$baseUrl/$conversationId/pin',
-      {'isPinned': isPinned},
-      (data) => null,
-    );
+    await _httpService.post('$baseUrl/$conversationId/pin', {
+      'isPinned': isPinned,
+    }, (data) => null);
   }
 
   Future<void> markAsRead(int conversationId, int userId) async {
@@ -86,10 +81,8 @@ class ChatService {
   }
 
   Future<void> renameConversation(int conversationId, String newName) async {
-    await _httpService.put(
-      '$baseUrl/$conversationId/rename',
-      {'name': newName},
-      (data) => null,
-    );
+    await _httpService.put('$baseUrl/$conversationId/rename', {
+      'name': newName,
+    }, (data) => null);
   }
 }

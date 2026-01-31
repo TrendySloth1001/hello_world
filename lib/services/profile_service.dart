@@ -13,11 +13,9 @@ class ProfileService {
   }
 
   Future<Map<String, dynamic>> updateAvatar(String avatarUrl) async {
-    return await _httpService.put(
-      '$baseUrl/avatar',
-      {'avatarUrl': avatarUrl},
-      (data) => data as Map<String, dynamic>,
-    );
+    return await _httpService.put('$baseUrl/avatar', {
+      'avatarUrl': avatarUrl,
+    }, (data) => data as Map<String, dynamic>);
   }
 
   Future<List<String>> getAvatarPresets() async {

@@ -104,22 +104,14 @@ class TaskService {
     String status, {
     String? rejectionReason,
   }) async {
-    await _httpService.post(
-      '$baseUrl/$taskId/respond',
-      {
-        'status': status,
-        if (rejectionReason != null) 'rejectionReason': rejectionReason,
-      },
-      (data) => null,
-    );
+    await _httpService.post('$baseUrl/$taskId/respond', {
+      'status': status,
+      if (rejectionReason != null) 'rejectionReason': rejectionReason,
+    }, (data) => null);
   }
 
   Future<void> claimTask(int taskId) async {
-    await _httpService.post(
-      '$baseUrl/$taskId/claim',
-      {},
-      (data) => null,
-    );
+    await _httpService.post('$baseUrl/$taskId/claim', {}, (data) => null);
   }
 
   Future<Map<String, dynamic>> getComments(
@@ -155,14 +147,10 @@ class TaskService {
     int contributorId,
     String action,
   ) async {
-    await _httpService.post(
-      '$baseUrl/$taskId/contribute/manage',
-      {
-        'contributorId': contributorId,
-        'action': action,
-      },
-      (data) => null,
-    );
+    await _httpService.post('$baseUrl/$taskId/contribute/manage', {
+      'contributorId': contributorId,
+      'action': action,
+    }, (data) => null);
   }
 
   Future<SubTask> addSubTask(int taskId, String title) async {

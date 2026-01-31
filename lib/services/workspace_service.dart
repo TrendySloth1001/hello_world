@@ -60,10 +60,7 @@ class WorkspaceService {
   }
 
   Future<void> deleteWorkspace(int id) async {
-    await _httpService.delete(
-      '$baseUrl/$id',
-      (data) => null,
-    );
+    await _httpService.delete('$baseUrl/$id', (data) => null);
   }
 
   // ==================== JOIN REQUESTS ====================
@@ -146,11 +143,9 @@ class WorkspaceService {
   }
 
   Future<void> updateWorkspaceAvatar(int workspaceId, String avatarUrl) async {
-    await _httpService.put(
-      '$baseUrl/$workspaceId/avatar',
-      {'avatarUrl': avatarUrl},
-      (data) => null,
-    );
+    await _httpService.put('$baseUrl/$workspaceId/avatar', {
+      'avatarUrl': avatarUrl,
+    }, (data) => null);
   }
 
   // ==================== INVITE SYSTEM ====================
@@ -195,10 +190,8 @@ class WorkspaceService {
   }
 
   Future<void> respondToInvite(int requestId, bool accept) async {
-    await _httpService.post(
-      '$baseUrl/invites/$requestId/respond',
-      {'accept': accept},
-      (data) => null,
-    );
+    await _httpService.post('$baseUrl/invites/$requestId/respond', {
+      'accept': accept,
+    }, (data) => null);
   }
 }

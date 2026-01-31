@@ -64,17 +64,15 @@ class HttpService {
   String _extractErrorMessage(http.Response response) {
     try {
       final body = jsonDecode(response.body);
-      return body['message'] ?? 'Request failed with status ${response.statusCode}';
+      return body['message'] ??
+          'Request failed with status ${response.statusCode}';
     } catch (e) {
       return 'Request failed with status ${response.statusCode}';
     }
   }
 
   /// GET request with token validation
-  Future<T> get<T>(
-    String url,
-    T Function(dynamic) parser,
-  ) async {
+  Future<T> get<T>(String url, T Function(dynamic) parser) async {
     final response = await http.get(
       Uri.parse(url),
       headers: await getHeaders(),
@@ -111,10 +109,7 @@ class HttpService {
   }
 
   /// DELETE request with token validation
-  Future<T> delete<T>(
-    String url,
-    T Function(dynamic) parser,
-  ) async {
+  Future<T> delete<T>(String url, T Function(dynamic) parser) async {
     final response = await http.delete(
       Uri.parse(url),
       headers: await getHeaders(),
