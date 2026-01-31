@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,10 +9,24 @@ import '../config/api_config.dart';
 class AuthService {
   static const String baseUrl = '${ApiConfig.baseUrl}/auth';
 
+  Map<String, String> _getHeaders({String? token}) {
+    final headers = {
+      'Content-Type': 'application/json',
+      'User-Agent':
+          'ManagementApp/1.0 (${Platform.operatingSystem}; ${Platform.operatingSystemVersion})',
+    };
+
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
+  }
+
   Future<AuthResponse> signInWithGoogle(String? idToken) async {
     final response = await http.post(
       Uri.parse('$baseUrl/google'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({'idToken': idToken}),
     );
 
@@ -28,7 +43,7 @@ class AuthService {
   Future<AuthResponse> signup(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/signup'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({'email': email, 'password': password}),
     );
 
@@ -45,7 +60,7 @@ class AuthService {
   Future<AuthResponse> login(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({'email': email, 'password': password}),
     );
 
@@ -61,6 +76,17 @@ class AuthService {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token != null) {
+      try {
+        await http.post(
+          Uri.parse('$baseUrl/logout'),
+          headers: _getHeaders(token: token),
+        );
+      } catch (e) {
+        print('Logout error: $e');
+      }
+    }
     await prefs.remove('token');
     await prefs.remove('userId');
   }

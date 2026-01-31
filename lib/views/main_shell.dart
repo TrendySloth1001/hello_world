@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'chat_screen.dart';
 import 'profile_screen.dart';
+import 'explore_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -15,6 +16,7 @@ class _MainShellState extends State<MainShell> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
+    const ExploreScreen(),
     const ChatScreen(),
     const ProfileScreen(),
   ];
@@ -40,13 +42,14 @@ class _MainShellState extends State<MainShell> {
               Icons.workspaces,
               'Workspaces',
             ),
+            _buildNavItem(1, Icons.explore_outlined, Icons.explore, 'Explore'),
             _buildNavItem(
-              1,
+              2,
               Icons.chat_bubble_outline,
               Icons.chat_bubble,
               'Chat',
             ),
-            _buildNavItem(2, Icons.person_outline, Icons.person, 'Profile'),
+            _buildNavItem(3, Icons.person_outline, Icons.person, 'Profile'),
           ],
         ),
       ),

@@ -24,4 +24,11 @@ class ProfileService {
       (data) => List<String>.from(data['avatars']),
     );
   }
+
+  Future<List<Map<String, dynamic>>> getLoginHistory() async {
+    return await _httpService.get(
+      '$baseUrl/login-history',
+      (data) => List<Map<String, dynamic>>.from(data),
+    );
+  }
 }

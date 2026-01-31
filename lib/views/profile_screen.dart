@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'login_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -324,6 +325,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           const SizedBox(height: 48),
           // Settings
+          _buildSettingsTile(
+            icon: Icons.history,
+            title: 'Login History',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const LoginHistoryScreen(),
+                ),
+              );
+            },
+          ),
           _buildSettingsTile(
             icon: Icons.palette_outlined,
             title: 'Change Avatar',
