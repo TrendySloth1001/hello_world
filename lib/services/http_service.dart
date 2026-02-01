@@ -11,7 +11,7 @@ class HttpService {
   HttpService._internal();
 
   // Callback for when user needs to be logged out
-  static Function()? onUnauthorized;
+  static Function(String? message)? onUnauthorized;
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,8 +33,15 @@ class HttpService {
   ) async {
     // Check for unauthorized (401) - token expired or invalid
     if (response.statusCode == 401) {
-      await _handleUnauthorized();
-      throw Exception('Session expired. Please login again.');
+      final message = _extractErrorMessage(response);
+      final body = jsonDecode(response.body);
+      final code = body['code'];
+
+      // Only show dialog for explicit session termination
+      final logoutMessage = (code == 'SESSION_TERMINATED') ? message : null;
+
+      await _handleUnauthorized(logoutMessage);
+      throw Exception(message);
     }
 
     // Check for success status codes
@@ -49,14 +56,14 @@ class HttpService {
   }
 
   /// Handles unauthorized access - logs user out and navigates to login
-  Future<void> _handleUnauthorized() async {
+  Future<void> _handleUnauthorized(String? message) async {
     // Clear stored credentials
     final authService = AuthService();
     await authService.logout();
 
     // Trigger logout callback (navigates to login screen)
     if (onUnauthorized != null) {
-      onUnauthorized!();
+      onUnauthorized!(message);
     }
   }
 

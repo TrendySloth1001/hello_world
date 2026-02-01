@@ -6,6 +6,17 @@ import '../models/auth_response.dart';
 
 import '../config/api_config.dart';
 
+class AuthException implements Exception {
+  final String message;
+  final String? code;
+  final dynamic data;
+
+  AuthException(this.message, {this.code, this.data});
+
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   static const String baseUrl = '${ApiConfig.baseUrl}/auth';
 
@@ -23,11 +34,19 @@ class AuthService {
     return headers;
   }
 
-  Future<AuthResponse> signInWithGoogle(String? idToken) async {
+  Future<AuthResponse> signInWithGoogle(
+    String? idToken, {
+    bool force = false,
+    int? terminateSessionId,
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/google'),
       headers: _getHeaders(),
-      body: jsonEncode({'idToken': idToken}),
+      body: jsonEncode({
+        'idToken': idToken,
+        'force': force,
+        'terminateSessionId': terminateSessionId,
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -36,7 +55,13 @@ class AuthService {
       await _saveUserId(authResponse.user['id']);
       return authResponse;
     } else {
-      throw Exception(jsonDecode(response.body)['message']);
+      final body = jsonDecode(response.body);
+      throw AuthException(
+        body['message'],
+        code: body['code'],
+        // sessions takes precedence for MAX_SESSIONS_EXCEEDED
+        data: body['sessions'] ?? body['session'],
+      );
     }
   }
 
@@ -53,15 +78,30 @@ class AuthService {
       await _saveUserId(authResponse.user['id']);
       return authResponse;
     } else {
-      throw Exception(jsonDecode(response.body)['message']);
+      final body = jsonDecode(response.body);
+      throw AuthException(
+        body['message'],
+        code: body['code'],
+        data: body['sessions'] ?? body['session'],
+      );
     }
   }
 
-  Future<AuthResponse> login(String email, String password) async {
+  Future<AuthResponse> login(
+    String email,
+    String password, {
+    bool force = false,
+    int? terminateSessionId,
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: _getHeaders(),
-      body: jsonEncode({'email': email, 'password': password}),
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'force': force,
+        'terminateSessionId': terminateSessionId,
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -70,7 +110,12 @@ class AuthService {
       await _saveUserId(authResponse.user['id']);
       return authResponse;
     } else {
-      throw Exception(jsonDecode(response.body)['message']);
+      final body = jsonDecode(response.body);
+      throw AuthException(
+        body['message'],
+        code: body['code'],
+        data: body['sessions'] ?? body['session'],
+      );
     }
   }
 

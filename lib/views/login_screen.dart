@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../controllers/auth_controller.dart';
+import '../services/auth_service.dart';
 import '../config/onboarding_config.dart';
+import 'session_conflict_screen.dart';
 import 'main_shell.dart';
 import 'signup_screen.dart';
 
@@ -24,25 +26,93 @@ class _LoginScreenState extends State<LoginScreen> {
   String _errorMessage = '';
   bool _isLoading = false;
 
-  Future<void> _handleGoogleSignIn() async {
+  Future<void> _handleGoogleSignIn({
+    bool force = false,
+    String? cachedIdToken,
+    int? terminateSessionId,
+  }) async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
 
+    String? idToken = cachedIdToken;
+
     try {
-      // Sign out first to force account picker when multiple accounts exist
-      await _googleSignIn.signOut();
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser != null) {
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-        await _authController.signInWithGoogle(googleAuth.idToken);
+      if ((!force && terminateSessionId == null) || idToken == null) {
+        // Sign out only if we are taking a fresh start or fixing an error state
+        // that isn't just a force retry or termination re-attempt
+        if (!force && terminateSessionId == null) {
+          await _googleSignIn.signOut();
+        }
+
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser != null) {
+          final GoogleSignInAuthentication googleAuth =
+              await googleUser.authentication;
+          idToken = googleAuth.idToken;
+        } else {
+          // User cancelled
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      if (idToken != null) {
+        await _authController.signInWithGoogle(
+          idToken,
+          force: force,
+          terminateSessionId: terminateSessionId,
+        );
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainShell()),
           );
+        }
+      }
+    } on AuthException catch (e) {
+      if ((e.code == 'MAX_SESSIONS_EXCEEDED' ||
+              e.code == 'ACTIVE_SESSION_EXISTS') &&
+          mounted) {
+        // Normalize data to list
+        List<dynamic> sessions = [];
+        if (e.data is List) {
+          sessions = e.data;
+        } else if (e.data is Map) {
+          sessions = [e.data];
+        }
+
+        // Show styled conflict screen
+        final result = await Navigator.push<dynamic>(
+          context,
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (context) => SessionConflictScreen(sessions: sessions),
+          ),
+        );
+
+        if (result == true) {
+          // Force replace oldest
+          await _handleGoogleSignIn(force: true, cachedIdToken: idToken);
+        } else if (result is int) {
+          // Terminate specific session
+          await _handleGoogleSignIn(
+            terminateSessionId: result,
+            cachedIdToken: idToken,
+          );
+        } else {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = e.message;
+          });
         }
       }
     } catch (e) {
@@ -52,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted && _errorMessage.isNotEmpty) {
         setState(() {
           _isLoading = false;
         });
@@ -60,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _login() async {
+  Future<void> _login({bool force = false, int? terminateSessionId}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
@@ -70,12 +140,49 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authController.login(
         _emailController.text,
         _passwordController.text,
+        force: force,
+        terminateSessionId: terminateSessionId,
       );
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainShell()),
         );
+      }
+    } on AuthException catch (e) {
+      if ((e.code == 'MAX_SESSIONS_EXCEEDED' ||
+              e.code == 'ACTIVE_SESSION_EXISTS') &&
+          mounted) {
+        List<dynamic> sessions = [];
+        if (e.data is List) {
+          sessions = e.data;
+        } else if (e.data is Map) {
+          sessions = [e.data];
+        }
+
+        final result = await Navigator.push<dynamic>(
+          context,
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (context) => SessionConflictScreen(sessions: sessions),
+          ),
+        );
+
+        if (result == true) {
+          await _login(force: true);
+        } else if (result is int) {
+          await _login(terminateSessionId: result);
+        } else {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = e.message;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -84,7 +191,15 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted &&
+          _errorMessage.isEmpty &&
+          !force &&
+          terminateSessionId == null) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      if (mounted && _errorMessage.isNotEmpty) {
         setState(() {
           _isLoading = false;
         });

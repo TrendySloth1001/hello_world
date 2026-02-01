@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'views/onboarding_screen.dart';
 import 'views/main_shell.dart';
 import 'views/login_screen.dart';
+import 'views/session_terminated_screen.dart';
 import 'services/auth_service.dart';
 import 'services/http_service.dart';
 import 'theme/app_theme.dart';
@@ -11,12 +12,21 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   // Set up automatic logout handler for token expiration
-  HttpService.onUnauthorized = () {
-    // Navigate to login screen when token expires
-    navigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-      (route) => false,
-    );
+  HttpService.onUnauthorized = (String? message) {
+    if (message != null) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => SessionTerminatedScreen(message: message),
+        ),
+        (route) => false,
+      );
+    } else {
+      // Navigate to login screen for generic token expiration
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   };
 
   runApp(const MyApp());
