@@ -3,6 +3,7 @@ import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'login_history_screen.dart';
+import 'admin/admin_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -337,6 +338,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
           ),
+          if (_profile?['email'] == 'nkumawat1010@gmail.com')
+            _buildSettingsTile(
+              icon: Icons.admin_panel_settings,
+              title: 'Admin Dashboard',
+              color: Colors.amber,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminDashboardScreen(),
+                  ),
+                );
+              },
+            ),
           _buildSettingsTile(
             icon: Icons.palette_outlined,
             title: 'Change Avatar',

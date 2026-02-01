@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../services/profile_service.dart';
 import 'home_screen.dart';
 import 'chat_screen.dart';
 import 'profile_screen.dart';
+import 'admin/admin_dashboard_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -11,13 +13,43 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  final ProfileService _profileService = ProfileService();
   int _currentIndex = 0;
+  bool _isAdmin = false;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const ChatScreen(),
-    const ProfileScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    try {
+      final profile = await _profileService.getProfile();
+      if (profile['email'] == 'nkumawat1010@gmail.com') {
+        // Hardcoded for frontend UI toggle
+        if (mounted) {
+          setState(() {
+            _isAdmin = true;
+          });
+        }
+      }
+    } catch (e) {
+      // Ignore errors, just don't show admin button
+    }
+  }
+
+  List<Widget> get _screens {
+    final screens = <Widget>[
+      const HomeScreen(),
+      const ChatScreen(),
+      const ProfileScreen(),
+    ];
+    if (_isAdmin) {
+      screens.add(const AdminDashboardScreen());
+    }
+    return screens;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +79,13 @@ class _MainShellState extends State<MainShell> {
               'Chat',
             ),
             _buildNavItem(2, Icons.person_outline, Icons.person, 'Profile'),
+            if (_isAdmin)
+              _buildNavItem(
+                3,
+                Icons.admin_panel_settings_outlined,
+                Icons.admin_panel_settings,
+                'Admin',
+              ),
           ],
         ),
       ),
