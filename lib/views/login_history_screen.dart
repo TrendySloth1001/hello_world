@@ -286,6 +286,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                           if (duration != null) ...[
                             const SizedBox(height: 8),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Duration:',
@@ -295,11 +296,13 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  _formatDuration(duration),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
+                                Expanded(
+                                  child: Text(
+                                    _formatDuration(duration),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -310,6 +313,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                           if (deviceInfo != null) ...[
                             const SizedBox(height: 8),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Device:',
@@ -319,11 +323,13 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  deviceInfo,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
+                                Expanded(
+                                  child: Text(
+                                    deviceInfo,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -334,6 +340,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                           if (ipAddress != null && ipAddress.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'IP:',
@@ -343,11 +350,13 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  ipAddress,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
+                                Expanded(
+                                  child: Text(
+                                    ipAddress,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
                               ],
