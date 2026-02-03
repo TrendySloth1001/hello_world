@@ -5,6 +5,7 @@ import '../models/message.dart';
 import '../models/user.dart';
 import '../services/chat_service.dart';
 import '../services/websocket_service.dart';
+import '../widgets/shimmer/chat_bubble_shimmer_loader.dart';
 
 class ConversationScreen extends StatefulWidget {
   final int conversationId;
@@ -476,9 +477,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           children: [
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Colors.blue),
-                    )
+                  ? const ChatBubbleShimmerLoader()
                   : _messages.isEmpty
                   ? Center(
                       child: Text(
@@ -1124,7 +1123,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Future<void> _loadMessages({bool showLoading = true}) async {
-    if (showLoading) {
+    // Only show full loading if we have no messages
+    if (_messages.isEmpty && showLoading) {
       setState(() => _isLoading = true);
     }
     try {
