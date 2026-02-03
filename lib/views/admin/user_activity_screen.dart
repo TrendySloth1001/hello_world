@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/admin_service.dart';
 import 'package:intl/intl.dart';
 import 'user_timeline_screen.dart';
+import '../../widgets/shimmer/conversation_shimmer_loader.dart';
 
 class UserActivityScreen extends StatefulWidget {
   const UserActivityScreen({super.key});
@@ -44,7 +45,8 @@ class _UserActivityScreenState extends State<UserActivityScreen> {
   }
 
   Future<void> _loadUsers({bool refresh = false}) async {
-    if (refresh) {
+    // Only show full loading if list is empty
+    if (refresh && _users.isEmpty) {
       setState(() => _isLoading = true);
     }
 
@@ -94,7 +96,7 @@ class _UserActivityScreenState extends State<UserActivityScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('User Activity Map')),
       body: _isLoading && _users.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const ConversationShimmerLoader(itemCount: 12)
           : RefreshIndicator(
               onRefresh: () => _loadUsers(refresh: true),
               child: ListView.separated(

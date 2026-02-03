@@ -4,6 +4,7 @@ import '../../services/admin_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'user_activity_screen.dart';
+import '../../widgets/shimmer/log_shimmer_loader.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -44,7 +45,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    // Only show full loading shimmer if we have no logs yet
+    if (_logs.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     try {
       final stats = await _adminService.getDashboardStats();
       final logsData = await _adminService.getActivityLogs(page: 1);
@@ -102,8 +106,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
-      body: _isLoading && _stats == null
-          ? const Center(child: CircularProgressIndicator())
+      body: _isLoading && _logs.isEmpty
+          ? const LogShimmerLoader(itemCount: 8)
           : RefreshIndicator(
               onRefresh: _loadData,
               child: CustomScrollView(

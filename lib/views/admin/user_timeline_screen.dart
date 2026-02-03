@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/admin_service.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/shimmer/log_shimmer_loader.dart';
 
 class UserTimelineScreen extends StatefulWidget {
   final int userId;
@@ -50,7 +51,8 @@ class _UserTimelineScreenState extends State<UserTimelineScreen> {
   }
 
   Future<void> _loadLogs({bool refresh = false}) async {
-    if (refresh) {
+    // Only show full loading shimmer if we have no logs yet (initial load)
+    if (_logs.isEmpty) {
       setState(() => _isLoading = true);
     }
 
@@ -123,7 +125,7 @@ class _UserTimelineScreenState extends State<UserTimelineScreen> {
         ),
       ),
       body: _isLoading && _logs.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const LogShimmerLoader(itemCount: 10)
           : RefreshIndicator(
               onRefresh: () => _loadLogs(refresh: true),
               child: ListView.builder(

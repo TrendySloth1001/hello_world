@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'login_history_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
+import '../widgets/shimmer/profile_shimmer_loader.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -28,24 +29,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    // Only show full loading if profile is not yet loaded
+    if (_profile == null) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final profile = await _profileService.getProfile();
       final avatars = await _profileService.getAvatarPresets();
-      setState(() {
-        _profile = profile;
-        _avatarPresets = avatars;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _profile = profile;
+          _avatarPresets = avatars;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (_profile == null) {
+            _error = e.toString().replaceAll('Exception: ', '');
+          } else {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Failed to refresh: $e')));
+          }
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -163,15 +177,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const ProfileShimmerLoader();
+    }
+
     return Scaffold(
       body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              )
-            : _error != null
+        child: _error != null
             ? _buildErrorState()
-            : _buildProfileContent(),
+            : RefreshIndicator(
+                onRefresh: _loadData,
+                child: _buildProfileContent(),
+              ),
       ),
     );
   }
