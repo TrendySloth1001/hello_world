@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'notifications_screen.dart';
 import '../services/workspace_service.dart';
+import '../widgets/shimmer/workspace_shimmer_loader.dart'; // Add import
 
 import '../models/workspace.dart';
 import '../config/onboarding_config.dart';
@@ -28,22 +29,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadWorkspaces() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    // Only show full loading shimmer if we have no data yet
+    if (_workspaces?.owned.isEmpty ?? true) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final workspaces = await _workspaceService.getMyWorkspaces();
-      setState(() {
-        _workspaces = workspaces;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _workspaces = workspaces;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -343,10 +351,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 8),
             // Content
             Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    )
+              child: _isLoading && _workspaces == null
+                  ? const WorkspaceShimmerLoader()
                   : _error != null
                   ? _buildErrorState()
                   : RefreshIndicator(
