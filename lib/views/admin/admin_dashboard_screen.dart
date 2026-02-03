@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'user_activity_screen.dart';
 import '../../widgets/shimmer/log_shimmer_loader.dart';
+import '../widgets/daily_requests_chart.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -20,6 +21,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> _logs = [];
   int _currentPage = 1;
   bool _hasMoreLogs = true;
+  bool _isLoadingMore = false;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -39,6 +41,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200 &&
         !_isLoading &&
+        !_isLoadingMore &&
         _hasMoreLogs) {
       _loadMoreLogs();
     }
@@ -73,7 +76,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _loadMoreLogs() async {
-    if (_isLoading) return;
+    if (_isLoading || _isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+
     try {
       final logsData = await _adminService.getActivityLogs(
         page: _currentPage + 1,
@@ -83,10 +88,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _logs.addAll(logsData['logs']);
           _currentPage++;
           _hasMoreLogs = logsData['pagination']['hasMore'] ?? false;
+          _isLoadingMore = false;
         });
       }
     } catch (e) {
-      // Handle page load error silently or show toast
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 
@@ -121,6 +129,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         children: [
                           _buildStatsGrid(),
                           const SizedBox(height: 24),
+                          if (_stats != null &&
+                              _stats!.containsKey('dailyRequests'))
+                            DailyRequestsChart(
+                              dailyRequests: _stats!['dailyRequests'] ?? [],
+                            ),
+                          const SizedBox(height: 24),
                           const Text(
                             'Recent Activity',
                             style: TextStyle(
@@ -146,7 +160,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             : const SizedBox.shrink();
                       }
                       return _buildLogCard(_logs[index]);
-                    }, childCount: _logs.length + (_hasMoreLogs ? 1 : 0)),
+                    }, childCount: _logs.length + (_isLoadingMore ? 1 : 0)),
                   ),
                 ],
               ),
