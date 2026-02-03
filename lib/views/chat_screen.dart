@@ -4,6 +4,7 @@ import '../services/chat_service.dart';
 import '../controllers/auth_controller.dart';
 import 'conversation_screen.dart';
 import 'widgets/new_chat_sheet.dart';
+import '../widgets/shimmer/conversation_shimmer_loader.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -26,10 +27,17 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadData() async {
+    // Only show full loading if conversations are empty
+    if (_conversations.isEmpty) {
+      setState(() => _isLoading = true);
+    }
+
     final userId = await _authController.getUserId();
-    setState(() {
-      _currentUserId = userId;
-    });
+    if (mounted) {
+      setState(() {
+        _currentUserId = userId;
+      });
+    }
     await _fetchConversations();
   }
 
@@ -112,11 +120,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
-    }
+    // if (_isLoading && _conversations.isEmpty) {
+    //   return const Scaffold(
+    //     body: ConversationShimmerLoader(),
+    //   );
+    // }
+    // ^ No, we keep the Scaffold structure.
+
+    // We will handle the body content instead of early return.
 
     return Scaffold(
       body: SafeArea(
@@ -159,7 +170,9 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             // Conversation List
             Expanded(
-              child: _conversations.isEmpty
+              child: _isLoading && _conversations.isEmpty
+                  ? const ConversationShimmerLoader()
+                  : _conversations.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
