@@ -8,6 +8,13 @@ class TaskService {
   static const String baseUrl = '${ApiConfig.baseUrl}/task';
   final HttpService _httpService = HttpService();
 
+  Future<List<Task>> getTasks() async {
+    return await _httpService.get(
+      '$baseUrl',
+      (data) => (data as List).map((e) => Task.fromJson(e)).toList(),
+    );
+  }
+
   Future<Task> createTask({
     required int workspaceId,
     required String title,

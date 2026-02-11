@@ -181,7 +181,9 @@ class _NewChatSheetState extends State<NewChatSheet> {
         filter: dart_ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A).withOpacity(0.85),
+            color: const Color(
+              0xFF1A1A1A,
+            ).withOpacity(0.95), // Slightly more opaque
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             boxShadow: [
               BoxShadow(
@@ -196,7 +198,7 @@ class _NewChatSheetState extends State<NewChatSheet> {
           ),
           padding: EdgeInsets.only(
             bottom: bottomInset > 0 ? bottomInset + 20 : 40,
-            top: 20,
+            top: 16, // Reduced top padding
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -205,37 +207,43 @@ class _NewChatSheetState extends State<NewChatSheet> {
               // Drag Indicator Pill
               Center(
                 child: Container(
-                  width: 48,
-                  height: 6,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               // Segmented Tabs with Glow
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildModeTab(
-                        'Direct Message',
-                        !_isGroupMode,
-                        () => setState(() => _isGroupMode = false),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildModeTab(
+                          'Direct Message',
+                          !_isGroupMode,
+                          () => setState(() => _isGroupMode = false),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildModeTab(
-                        'Group Chat',
-                        _isGroupMode,
-                        () => setState(() => _isGroupMode = true),
+                      Expanded(
+                        child: _buildModeTab(
+                          'Group Chat',
+                          _isGroupMode,
+                          () => setState(() => _isGroupMode = true),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -275,35 +283,35 @@ class _NewChatSheetState extends State<NewChatSheet> {
                     icon: Icons.group_outlined,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Selected Members
                 if (_groupMembers.isNotEmpty)
                   Container(
-                    height: 50,
+                    height: 48,
                     margin: const EdgeInsets.only(bottom: 20),
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       scrollDirection: Axis.horizontal,
                       itemCount: _groupMembers.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (context, index) {
                         final user = _groupMembers[index];
                         return Container(
-                          padding: const EdgeInsets.fromLTRB(6, 6, 16, 6),
+                          padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(25),
+                            color: Colors.blueAccent.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.blueAccent.withOpacity(0.2),
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               CircleAvatar(
-                                radius: 14,
-                                backgroundColor: Colors.blueAccent.shade400,
+                                radius: 12,
+                                backgroundColor: Colors.blueAccent,
                                 child: Text(
                                   user.email[0].toUpperCase(),
                                   style: const TextStyle(
@@ -318,17 +326,17 @@ class _NewChatSheetState extends State<NewChatSheet> {
                                 user.email.split('@')[0],
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               GestureDetector(
                                 onTap: () => _removeFromGroup(user),
                                 child: const Icon(
                                   Icons.close,
-                                  size: 16,
-                                  color: Colors.white54,
+                                  size: 14,
+                                  color: Colors.white70,
                                 ),
                               ),
                             ],
@@ -345,7 +353,7 @@ class _NewChatSheetState extends State<NewChatSheet> {
                 child: _buildPremiumInput(
                   controller: _emailController,
                   hintText: _isGroupMode
-                      ? 'Add Member by Email'
+                      ? 'Add Member (Email)'
                       : 'Enter User Email',
                   icon: Icons.search,
                   onSubmitted: (_) => _searchUser(),
@@ -363,15 +371,14 @@ class _NewChatSheetState extends State<NewChatSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Container(
                     decoration: BoxDecoration(
-                      //color: Colors.white.withOpacity(0.08),
-
-                      ///borderRadius: BorderRadius.circular(20),
-                      //border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(12),
                       leading: CircleAvatar(
-                        radius: 18,
+                        radius: 20,
                         backgroundColor: Colors.blueAccent.shade400,
                         backgroundImage: _foundUser!.avatarUrl != null
                             ? NetworkImage(_foundUser!.avatarUrl!)
@@ -391,17 +398,17 @@ class _NewChatSheetState extends State<NewChatSheet> {
                         _foundUser!.email,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
                         ),
                       ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          'Tap to ${_isGroupMode ? 'add' : 'start conversation'}',
+                          'Tap the arrow to ${_isGroupMode ? 'add to group' : 'chat'}',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.5),
-                            fontSize: 10,
+                            fontSize: 11,
                           ),
                         ),
                       ),
@@ -417,9 +424,7 @@ class _NewChatSheetState extends State<NewChatSheet> {
                           : IconButton.filled(
                               onPressed: _startChat,
                               style: IconButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.1,
-                                ),
+                                backgroundColor: Colors.blueAccent,
                                 foregroundColor: Colors.white,
                               ),
                               icon: const Icon(Icons.arrow_forward_rounded),
@@ -433,16 +438,16 @@ class _NewChatSheetState extends State<NewChatSheet> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                   child: SizedBox(
-                    height: 56,
+                    height: 52,
                     child: ElevatedButton(
                       onPressed: _isStartingChat ? null : _startChat,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blueAccent,
                         foregroundColor: Colors.white,
-                        elevation: 8,
-                        shadowColor: Colors.blueAccent.withOpacity(0.5),
+                        elevation: 4,
+                        shadowColor: Colors.blueAccent.withOpacity(0.3),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         textStyle: const TextStyle(
                           fontSize: 16,
@@ -481,20 +486,22 @@ class _NewChatSheetState extends State<NewChatSheet> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        color: const Color(0xFF2C2C2E), // Darker gray for substantial feel
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
       child: Row(
         children: [
+          Icon(icon, color: Colors.white38, size: 20),
+          const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: controller,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
               ),
               decoration: InputDecoration(
                 hintText: hintText,
@@ -504,7 +511,7 @@ class _NewChatSheetState extends State<NewChatSheet> {
                 ),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
               onSubmitted: onSubmitted,
               textInputAction: isSearchAction
@@ -513,36 +520,35 @@ class _NewChatSheetState extends State<NewChatSheet> {
             ),
           ),
           if (isSearchAction)
-            if (isLoading)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white30,
-                ),
-              )
-            else
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.blueAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.blueAccent,
-                    size: 20,
-                  ),
-                  onPressed: onActionPressed,
-                  constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 36,
+              height: 36,
+              child: isLoading
+                  ? const Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                    )
+                  : Material(
+                      color: Colors.blueAccent,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        onTap: onActionPressed,
+                        borderRadius: BorderRadius.circular(10),
+                        child: const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+            ),
         ],
       ),
     );
@@ -553,45 +559,20 @@ class _NewChatSheetState extends State<NewChatSheet> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.only(bottom: 12),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? Colors.blueAccent : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          color: isSelected ? const Color(0xFF3A3A3C) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withOpacity(0.4),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                fontSize: 15,
-                letterSpacing: 0.3,
-              ),
-            ),
-            if (isSelected)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                height: 0,
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blueAccent.withOpacity(0.8),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-          ],
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white54,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 14,
+          ),
         ),
       ),
     );

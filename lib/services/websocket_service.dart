@@ -120,12 +120,16 @@ class WebSocketService {
     int senderId,
     String content, {
     int? replyToId,
+    int? taskId,
+    int? workspaceId,
   }) {
     socket.emit('send_message', {
       'conversationId': conversationId,
       'senderId': senderId,
       'content': content,
       'replyToId': replyToId,
+      'taskId': taskId,
+      'workspaceId': workspaceId,
     });
   }
 

@@ -13,6 +13,10 @@ class Message {
   final Message? replyTo;
   final bool isDeleted;
   final List<MessageReaction> reactions;
+  final int? taskId;
+  final Map<String, dynamic>? task;
+  final int? workspaceId;
+  final Map<String, dynamic>? workspace;
 
   Message({
     required this.id,
@@ -25,6 +29,10 @@ class Message {
     this.replyTo,
     this.isDeleted = false,
     this.reactions = const [],
+    this.taskId,
+    this.task,
+    this.workspaceId,
+    this.workspace,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -32,7 +40,7 @@ class Message {
       id: json['id'],
       conversationId: json['conversationId'],
       senderId: json['senderId'],
-      content: json['content'] ?? '',
+      content: json['content'],
       createdAt: DateTime.parse(json['createdAt']),
       sender: json['sender'] != null ? User.fromJson(json['sender']) : null,
       replyToId: json['replyToId'],
@@ -41,10 +49,14 @@ class Message {
           : null,
       isDeleted: json['isDeleted'] ?? false,
       reactions:
-          (json['reactions'] as List?)
+          (json['reactions'] as List<dynamic>?)
               ?.map((e) => MessageReaction.fromJson(e))
               .toList() ??
           [],
+      taskId: json['taskId'],
+      task: json['task'],
+      workspaceId: json['workspaceId'],
+      workspace: json['workspace'],
     );
   }
 }

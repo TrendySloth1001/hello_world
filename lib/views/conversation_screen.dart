@@ -6,6 +6,12 @@ import '../models/user.dart';
 import '../services/chat_service.dart';
 import '../services/websocket_service.dart';
 import '../widgets/shimmer/chat_bubble_shimmer_loader.dart';
+import '../models/task.dart';
+import '../services/task_service.dart';
+import '../services/workspace_service.dart'; // Import WorkspaceService
+import '../widgets/chat/task_attachment.dart';
+import '../models/workspace.dart';
+import '../widgets/chat/workspace_attachment.dart';
 
 class ConversationScreen extends StatefulWidget {
   final int conversationId;
@@ -30,6 +36,9 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   final ChatService _chatService = ChatService();
   final WebSocketService _webSocketService = WebSocketService();
+  final TaskService _taskService = TaskService();
+  final WorkspaceService _workspaceService =
+      WorkspaceService(); // Inject WorkspaceService
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -43,6 +52,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   final Set<int> _selectedMessageIds = {};
 
   Message? _replyingTo;
+  Task? _selectedTask; // State for selected task attachment
+  Workspace? _selectedWorkspace; // State for selected workspace attachment
 
   // Typing indicator state
   bool _isOtherUserTyping = false;
@@ -312,16 +323,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     widget.conversationId,
                     newName,
                   );
+                  if (!mounted) return;
                   setState(() {
                     _displayConversationName = newName;
                   });
-                  if (mounted) Navigator.pop(context);
+                  Navigator.pop(context);
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to rename: $e')),
-                    );
-                  }
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to rename: $e')),
+                  );
                 }
               } else {
                 Navigator.pop(context);
@@ -335,6 +346,218 @@ class _ConversationScreenState extends State<ConversationScreen> {
         ],
       ),
     );
+  }
+
+  void _showTaskSelectionSheet() async {
+    // 1. Fetch Workspaces First
+    try {
+      final userWorkspaces = await _workspaceService
+          .getMyWorkspaces(); // Returns UserWorkspaces object
+
+      // Combine owned and member workspaces for selection
+      final workspaces = [...userWorkspaces.owned, ...userWorkspaces.memberOf];
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFF1F2C34),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.work, color: Color(0xFF00A884)),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Select Workspace',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white12),
+              Expanded(
+                child: workspaces.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No workspaces found',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: workspaces.length,
+                        itemBuilder: (context, index) {
+                          final workspace = workspaces[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blueGrey,
+                              backgroundImage: workspace.avatarUrl != null
+                                  ? NetworkImage(workspace.avatarUrl!)
+                                  : null,
+                              child: workspace.avatarUrl == null
+                                  ? const Icon(Icons.work, color: Colors.white)
+                                  : null,
+                              onBackgroundImageError: (_, __) =>
+                                  const Icon(Icons.work),
+                            ),
+                            title: Text(
+                              workspace.name,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            onTap: () {
+                              Navigator.pop(context); // Close workspace sheet
+                              _showWorkspaceTasksSheet(
+                                workspace.id,
+                                workspace.name,
+                              ); // Open tasks sheet
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load workspaces: $e')));
+    }
+  }
+
+  void _showWorkspaceTasksSheet(int workspaceId, String workspaceName) async {
+    try {
+      final tasks = await _taskService.getWorkspaceTasks(workspaceId);
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFF1F2C34),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showTaskSelectionSheet(); // Go back to workspaces
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        workspaceName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white12),
+              Expanded(
+                child: tasks.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No tasks found in this workspace',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: tasks.length,
+                        itemBuilder: (context, index) {
+                          final task = tasks[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: _getStatusColor(
+                                task.status,
+                              ).withOpacity(0.2),
+                              child: Icon(
+                                Icons.assignment,
+                                color: _getStatusColor(task.status),
+                                size: 16,
+                              ),
+                            ),
+                            title: Text(
+                              task.title,
+                              style: const TextStyle(color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              '#${task.id} • ${task.status}',
+                              style: const TextStyle(color: Colors.white54),
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _selectedTask = task;
+                              });
+                              Navigator.pop(context); // Close tasks sheet
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load tasks: $e')));
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'TODO':
+        return Colors.blue;
+      case 'IN_PROGRESS':
+        return Colors.orange;
+      case 'DONE':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   // --- UI Building ---
@@ -736,6 +959,32 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                     ),
                                   ],
                                 ),
+                                // Task Attachment Preview
+                                if (message.taskId != null &&
+                                    message.task != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: TaskAttachment(
+                                      taskId: message.taskId!,
+                                      title: message.task!['title'] ?? 'Task',
+                                      status:
+                                          message.task!['status'] ?? 'UNKNOWN',
+                                      priority:
+                                          message.task!['priority'] ?? 'MEDIUM',
+                                      currentUserId: widget.currentUserId,
+                                    ),
+                                  ),
+                                // Workspace Attachment Preview
+                                if (message.workspaceId != null &&
+                                    message.workspace != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: WorkspaceAttachment(
+                                      workspaceId: message.workspaceId!,
+                                      workspace: message.workspace!,
+                                      currentUserId: widget.currentUserId,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -926,6 +1175,147 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[600],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ListTile(
+            leading: const Icon(Icons.assignment, color: Colors.blueAccent),
+            title: const Text('Task', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              _showTaskSelectionSheet();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.work, color: Colors.amber),
+            title: const Text(
+              'Workspace',
+              style: TextStyle(color: Colors.white),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _showWorkspaceSelectionSheet();
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  void _showWorkspaceSelectionSheet() async {
+    try {
+      final userWorkspaces = await _workspaceService.getMyWorkspaces();
+      final allWorkspaces = [
+        ...userWorkspaces.owned,
+        ...userWorkspaces.memberOf,
+      ];
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFF1F2C34),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Select Workspace',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(color: Colors.white12),
+              Expanded(
+                child: allWorkspaces.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No workspaces found',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: allWorkspaces.length,
+                        itemBuilder: (context, index) {
+                          final workspace = allWorkspaces[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blueGrey,
+                              backgroundImage: workspace.avatarUrl != null
+                                  ? NetworkImage(workspace.avatarUrl!)
+                                  : null,
+                              child: workspace.avatarUrl == null
+                                  ? Text(
+                                      workspace.name.isEmpty
+                                          ? 'W'
+                                          : workspace.name[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            title: Text(
+                              workspace.name,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            subtitle: Text(
+                              workspace.ownerId == widget.currentUserId
+                                  ? 'Owner'
+                                  : 'Member',
+                              style: const TextStyle(color: Colors.white54),
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _selectedWorkspace = workspace;
+                                _selectedTask = null; // Mutually exclusive
+                              });
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load workspaces: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildAvatar(User? sender) {
     if (sender?.avatarUrl != null) {
       return CachedNetworkImage(
@@ -943,7 +1333,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         errorWidget: (context, url, error) => CircleAvatar(
           radius: 16,
           backgroundColor: Colors.blue.shade900,
-          child: Text((sender.email ?? '?')[0].toUpperCase()),
+          child: Text(sender.email[0].toUpperCase()),
         ),
       );
     }
@@ -951,7 +1341,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       radius: 16,
       backgroundColor: Colors.blue.shade900,
       child: Text(
-        (sender?.email ?? '?')[0].toUpperCase(),
+        sender?.email[0].toUpperCase() ?? '?',
         style: const TextStyle(
           color: Colors.white,
           fontSize: 12,
@@ -968,6 +1358,55 @@ class _ConversationScreenState extends State<ConversationScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Selected Task Preview
+          if (_selectedTask != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2C34),
+                borderRadius: BorderRadius.circular(8),
+                border: const Border(
+                  left: BorderSide(color: Colors.blue, width: 4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.assignment, size: 16, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Attaching Task',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                        Text(
+                          '#${_selectedTask!.id}: ${_selectedTask!.title}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                    onPressed: () => setState(() => _selectedTask = null),
+                  ),
+                ],
+              ),
+            ),
+
           if (_replyingTo != null) ...[
             // ... keys reply logic same, just ensure dark theme
             Container(
@@ -1016,6 +1455,63 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ),
             ),
           ],
+          // Selected Workspace Preview
+          if (_selectedWorkspace != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2C34),
+                borderRadius: BorderRadius.circular(8),
+                border: const Border(
+                  left: BorderSide(color: Colors.amber, width: 4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.work, size: 16, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Attaching Workspace',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                        Text(
+                          _selectedWorkspace!.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          _selectedWorkspace!.ownerId == widget.currentUserId
+                              ? 'Owner'
+                              : 'Member',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                    onPressed: () => setState(() => _selectedWorkspace = null),
+                  ),
+                ],
+              ),
+            ),
           if (_isOtherUserTyping)
             Padding(
               padding: const EdgeInsets.only(left: 16, bottom: 8),
@@ -1055,6 +1551,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              IconButton(
+                icon: const Icon(Icons.add, color: Colors.grey),
+                onPressed: _showAttachmentOptions, // Open attachment options
+              ),
               Expanded(
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 48),
@@ -1090,7 +1590,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: _sendMessage,
+                onTap: () {
+                  if (_messageController.text.trim().isEmpty &&
+                      _selectedTask == null) {
+                    // Mic logic or attachment logic?
+                    // For now let's make it open task sheet if empty text?
+                    // Or stick to attachment button.
+                  } else {
+                    _sendMessage();
+                  }
+                },
                 child: CircleAvatar(
                   radius: 24,
                   backgroundColor: const Color(0xFF00A884), // WhatsApp Green
@@ -1104,7 +1613,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           ),
                         )
                       : Icon(
-                          _messageController.text.trim().isEmpty
+                          (_messageController.text.trim().isEmpty &&
+                                  _selectedTask == null &&
+                                  _selectedWorkspace == null)
                               ? Icons.mic
                               : Icons.send,
                           color: Colors.white,
@@ -1113,6 +1624,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ),
             ],
           ),
+          // Attachment Button Row (below input if needed or inside left)
+          // Let's add a row of actions below if needed, or put a + button to the left of input.
+          // Since I can't easily refactor the whole row in one chunk without risk,
+          // I'll add the button TO THE LEFT of the TextField in the Row above.
         ],
       ),
     );
@@ -1169,6 +1684,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
         widget.currentUserId,
         content,
         replyToId: _replyingTo?.id,
+        taskId: _selectedTask?.id,
+        workspaceId: _selectedWorkspace?.id,
       );
 
       if (mounted) {
@@ -1176,6 +1693,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
         setState(() {
           _isSending = false;
           _replyingTo = null; // Clear reply state
+          _selectedTask = null; // Clear task selection
+          _selectedWorkspace = null; // Clear workspace selection
         });
         _scrollToBottom();
       }

@@ -59,10 +59,19 @@ class ChatService {
   }
 
   // Send a message
-  Future<Message> sendMessage(int conversationId, String content) async {
-    return await _httpService.post('$baseUrl/$conversationId/messages', {
-      'content': content,
-    }, (data) => Message.fromJson(data));
+  Future<Message> sendMessage(
+    int conversationId,
+    String content, {
+    int? taskId,
+  }) async {
+    return await _httpService.post(
+      '$baseUrl/$conversationId/messages',
+      {'content': content, if (taskId != null) 'taskId': taskId},
+      (data) {
+        print("Raw socket/http message response: $data");
+        return Message.fromJson(data);
+      },
+    );
   }
 
   // Toggle pin status
