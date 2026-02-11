@@ -14,6 +14,9 @@ class AppAssets {
 
   // Post-login
   static const String welcome = 'assets/Welcome.gif';
+
+  // Branding
+  static const String logo = 'assets/images/logo.png';
 }
 
 class OnboardingConfig {

@@ -66,8 +66,8 @@ class _SignupScreenState extends State<SignupScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // Signup GIF
-              Image.asset(AppAssets.signup, height: 200, fit: BoxFit.contain),
+              // App Logo
+              Image.asset(AppAssets.logo, height: 150, fit: BoxFit.contain),
               const SizedBox(height: 32),
               Text(
                 'Join TaskFlow',

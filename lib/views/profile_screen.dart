@@ -165,7 +165,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
+    );
+
+    // Minimum delay to ensure the loading indicator is seen
+    await Future.delayed(const Duration(milliseconds: 500));
+
     await _authService.logout();
+
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
