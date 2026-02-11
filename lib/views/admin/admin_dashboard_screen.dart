@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../services/admin_service.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert';
 import 'user_activity_screen.dart';
 import 'send_notification_screen.dart';
 import '../../widgets/shimmer/log_shimmer_loader.dart';
@@ -603,181 +601,121 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showLogDetails(dynamic log) async {
-    // Show loading dialog while fetching detailed data
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // Fetch the complete log details from backend
-      final detailedLog = await _adminService.getActivityLogDetails(log['id']);
-
-      if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
-
-      final details = detailedLog['details'] ?? {};
-      final requestBody = details['body'];
-      final responseBody = details['response'];
-      final query = details['query'];
-      final headers = details['headers'];
-      final user = detailedLog['user'];
-
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Request Details',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  16 + MediaQuery.of(context).padding.bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Transaction Details',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    _buildSectionHeader('Request Info'),
+                    _buildDetailRow('Method', log['method'] ?? 'N/A'),
+                    _buildDetailRow('Path', log['path'] ?? 'N/A'),
+                    _buildDetailRow(
+                      'Status Code',
+                      '${log['statusCode'] ?? 'N/A'}',
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
+                    _buildDetailRow('Duration', '${log['duration'] ?? 0}ms'),
+                    const SizedBox(height: 24),
+
+                    _buildSectionHeader('Meta Info'),
+                    _buildDetailRow(
+                      'User',
+                      log['user'] != null
+                          ? '${log['user']['email'] ?? 'Unknown'} (ID: ${log['userId']})'
+                          : log['userId'] != null
+                          ? 'User ID: ${log['userId']}'
+                          : 'Anonymous',
+                    ),
+                    _buildDetailRow('IP Address', log['ipAddress'] ?? 'N/A'),
+                    _buildDetailRow(
+                      'User Agent',
+                      _truncateUserAgent(log['userAgent'] ?? 'N/A'),
+                    ),
+                    _buildDetailRow(
+                      'Timestamp',
+                      log['createdAt'] != null
+                          ? DateFormat(
+                              'yyyy-MM-dd HH:mm:ss',
+                            ).format(DateTime.parse(log['createdAt']).toLocal())
+                          : 'N/A',
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Lightweight info notice
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Showing lightweight request metadata only. Request/response bodies excluded for performance.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader('Request Info'),
-                      _buildDetailRow('Method', detailedLog['method'] ?? 'N/A'),
-                      _buildDetailRow('Path', detailedLog['path'] ?? 'N/A'),
-                      _buildDetailRow(
-                        'Status Code',
-                        '${detailedLog['statusCode'] ?? 'N/A'}',
-                      ),
-                      _buildDetailRow(
-                        'Duration',
-                        '${detailedLog['duration'] ?? 0}ms',
-                      ),
-                      const SizedBox(height: 24),
-
-                      _buildSectionHeader('Meta Info'),
-                      _buildDetailRow(
-                        'User',
-                        user != null
-                            ? '${user['email'] ?? 'Unknown'} (ID: ${detailedLog['userId']})'
-                            : 'Anonymous',
-                      ),
-                      _buildDetailRow(
-                        'IP Address',
-                        detailedLog['ipAddress'] ?? 'N/A',
-                      ),
-                      _buildDetailRow(
-                        'User Agent',
-                        detailedLog['userAgent'] ?? 'N/A',
-                      ),
-                      _buildDetailRow(
-                        'Timestamp',
-                        detailedLog['createdAt'] != null
-                            ? DateFormat('yyyy-MM-dd HH:mm:ss').format(
-                                DateTime.parse(
-                                  detailedLog['createdAt'],
-                                ).toLocal(),
-                              )
-                            : 'N/A',
-                      ),
-                      const SizedBox(height: 24),
-
-                      if (responseBody != null) ...[
-                        _buildSectionHeader('Response Body'),
-                        _buildJsonBlock(responseBody),
-                        const SizedBox(height: 24),
-                      ],
-
-                      if (requestBody != null &&
-                          requestBody is Map &&
-                          requestBody.isNotEmpty) ...[
-                        _buildSectionHeader('Request Body'),
-                        _buildJsonBlock(requestBody),
-                        const SizedBox(height: 24),
-                      ],
-
-                      if (query != null &&
-                          query is Map &&
-                          query.isNotEmpty) ...[
-                        _buildSectionHeader('Query Params'),
-                        _buildKeyValueTable(Map<String, dynamic>.from(query)),
-                        const SizedBox(height: 24),
-                      ],
-
-                      if (headers != null &&
-                          headers is Map &&
-                          headers.isNotEmpty) ...[
-                        _buildSectionHeader('Headers'),
-                        _buildKeyValueTable(Map<String, dynamic>.from(headers)),
-                      ],
-
-                      // Show message if no details available
-                      if ((responseBody == null ||
-                              (responseBody is Map && responseBody.isEmpty)) &&
-                          (requestBody == null ||
-                              (requestBody is Map && requestBody.isEmpty)) &&
-                          (query == null || (query is Map && query.isEmpty)) &&
-                          (headers == null ||
-                              (headers is Map && headers.isEmpty))) ...[
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 48,
-                                  color: Colors.grey,
-                                ),
-                                SizedBox(height: 16),
-                                Text(
-                                  'No additional transaction details available',
-                                  style: TextStyle(color: Colors.grey),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading transaction details: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+      ),
+    );
+  }
+
+  String _truncateUserAgent(String userAgent) {
+    if (userAgent.length <= 100) return userAgent;
+    return '${userAgent.substring(0, 97)}...';
   }
 
   Widget _buildSectionHeader(String title) {
@@ -791,108 +729,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           color: Colors.blueAccent,
         ),
       ),
-    );
-  }
-
-  Widget _buildKeyValueTable(Map<String, dynamic> data) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        children: data.entries.map((entry) {
-          final isLast = entry.key == data.keys.last;
-          return Container(
-            decoration: BoxDecoration(
-              border: isLast
-                  ? null
-                  : const Border(bottom: BorderSide(color: Colors.white10)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      entry.key,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 3,
-                    child: SelectableText(
-                      '${entry.value}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildJsonBlock(dynamic data) {
-    String prettyJson = '{}';
-    try {
-      const encoder = JsonEncoder.withIndent('  ');
-      prettyJson = encoder.convert(data);
-    } catch (e) {
-      prettyJson = data.toString();
-    }
-
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF151515),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: SelectableText(
-            prettyJson,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Color(0xFFA9B7C6),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: IconButton(
-            icon: const Icon(Icons.copy, size: 16, color: Colors.white38),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: prettyJson));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Copied to clipboard'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
-            tooltip: 'Copy',
-          ),
-        ),
-      ],
     );
   }
 
