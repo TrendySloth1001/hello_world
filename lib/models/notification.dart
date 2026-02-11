@@ -29,17 +29,19 @@ class NotificationModel {
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json['id'],
-      userId: json['userId'],
-      title: json['title'],
-      message: json['message'],
+      id: json['id'] as int? ?? 0,
+      userId: json['userId'] as int? ?? 0,
+      title: json['title'] ?? '',
+      message: json['message'] ?? '',
       type: json['type'] ?? 'general',
       priority: json['priority'] ?? 'normal',
       isRead: json['isRead'] ?? false,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt']) : null,
       actionUrl: json['actionUrl'],
       metadata: json['metadata'],
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
       expiresAt: json['expiresAt'] != null
           ? DateTime.parse(json['expiresAt'])
           : null,

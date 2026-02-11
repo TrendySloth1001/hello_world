@@ -37,15 +37,17 @@ class Task {
 
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
-      id: json['id'],
-      title: json['title'],
+      id: json['id'] as int? ?? 0,
+      title: json['title'] ?? '',
       description: json['description'],
-      status: json['status'],
-      priority: json['priority'],
+      status: json['status'] ?? 'OPEN',
+      priority: json['priority'] ?? 'MEDIUM',
       isOpen: json['isOpen'] ?? false,
       dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
-      createdAt: DateTime.parse(json['createdAt']),
-      createdById: json['createdById'],
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
+      createdById: json['createdById'] as int? ?? 0,
       createdBy: json['createdBy'] != null
           ? User.fromJson(json['createdBy'])
           : null,
@@ -65,7 +67,9 @@ class Task {
       subTasks: json['subTasks'] != null
           ? (json['subTasks'] as List).map((e) => SubTask.fromJson(e)).toList()
           : null,
-      commentCount: json['_count'] != null ? json['_count']['comments'] : 0,
+      commentCount: json['_count'] != null
+          ? (json['_count']['comments'] as int? ?? 0)
+          : 0,
     );
   }
 }
@@ -89,10 +93,10 @@ class SubTask {
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
     return SubTask(
-      id: json['id'],
-      taskId: json['taskId'],
-      title: json['title'],
-      isCompleted: json['isCompleted'],
+      id: json['id'] as int? ?? 0,
+      taskId: json['taskId'] as int? ?? 0,
+      title: json['title'] ?? '',
+      isCompleted: json['isCompleted'] ?? false,
       completedBy: json['completedBy'] != null
           ? User.fromJson(json['completedBy'])
           : null,
@@ -124,13 +128,15 @@ class TaskAssignment {
 
   factory TaskAssignment.fromJson(Map<String, dynamic> json) {
     return TaskAssignment(
-      id: json['id'],
-      taskId: json['taskId'],
+      id: json['id'] as int? ?? 0,
+      taskId: json['taskId'] as int? ?? 0,
       user: json['user'] != null ? User.fromJson(json['user']) : null,
-      status: json['status'],
+      status: json['status'] ?? 'PENDING',
       role: json['role'] ?? 'ASSIGNEE',
       rejectionReason: json['rejectionReason'],
-      timestamp: DateTime.parse(json['updatedAt']),
+      timestamp: DateTime.parse(
+        json['updatedAt'] ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 }
@@ -152,11 +158,13 @@ class TaskActivity {
 
   factory TaskActivity.fromJson(Map<String, dynamic> json) {
     return TaskActivity(
-      id: json['id'],
-      taskId: json['taskId'],
+      id: json['id'] as int? ?? 0,
+      taskId: json['taskId'] as int? ?? 0,
       user: json['user'] != null ? User.fromJson(json['user']) : null,
-      action: json['action'],
-      timestamp: DateTime.parse(json['timestamp']),
+      action: json['action'] ?? '',
+      timestamp: DateTime.parse(
+        json['timestamp'] ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 }
@@ -184,12 +192,14 @@ class Comment {
 
   factory Comment.fromJson(Map<String, dynamic> json) {
     return Comment(
-      id: json['id'],
-      content: json['content'],
-      taskId: json['taskId'],
-      parentId: json['parentId'],
+      id: json['id'] as int? ?? 0,
+      content: json['content'] ?? '',
+      taskId: json['taskId'] as int? ?? 0,
+      parentId: json['parentId'] as int?,
       user: json['user'] != null ? User.fromJson(json['user']) : null,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
       replies: json['replies'] != null
           ? (json['replies'] as List).map((e) => Comment.fromJson(e)).toList()
           : null,

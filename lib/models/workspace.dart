@@ -23,16 +23,18 @@ class Workspace {
 
   factory Workspace.fromJson(Map<String, dynamic> json) {
     return Workspace(
-      id: json['id'],
-      name: json['name'],
+      id: json['id'] as int? ?? 0,
+      name: json['name'] ?? 'Workspace',
       description: json['description'],
-      publicId: json['publicId'],
+      publicId: json['publicId'] ?? '',
       avatarUrl: json['avatarUrl'],
-      ownerId: json['ownerId'],
+      ownerId: json['ownerId'] as int? ?? 0,
       owner: WorkspaceOwner.fromJson(
-        json['owner'] ?? {'id': json['ownerId'], 'email': ''},
+        json['owner'] ?? {'id': json['ownerId'] as int? ?? 0, 'email': ''},
       ),
-      memberCount: json['_count']?['members'] ?? 0,
+      memberCount: json['_count'] != null
+          ? (json['_count']['members'] as int? ?? 0)
+          : 0,
       members: json['members'] != null
           ? (json['members'] as List)
                 .map((m) => WorkspaceMember.fromJson(m))
@@ -51,7 +53,7 @@ class WorkspaceOwner {
 
   factory WorkspaceOwner.fromJson(Map<String, dynamic> json) {
     return WorkspaceOwner(
-      id: json['id'],
+      id: json['id'] as int? ?? 0,
       email: json['email'] ?? '',
       avatarUrl: json['avatarUrl'],
     );
@@ -77,12 +79,14 @@ class WorkspaceMember {
 
   factory WorkspaceMember.fromJson(Map<String, dynamic> json) {
     return WorkspaceMember(
-      id: json['id'],
-      userId: json['userId'],
-      workspaceId: json['workspaceId'],
-      position: json['position'],
-      user: MemberUser.fromJson(json['user']),
-      joinedAt: DateTime.parse(json['joinedAt']),
+      id: json['id'] as int? ?? 0,
+      userId: json['userId'] as int? ?? 0,
+      workspaceId: json['workspaceId'] as int? ?? 0,
+      position: json['position'] ?? 'Member',
+      user: MemberUser.fromJson(json['user'] ?? {'id': 0, 'email': ''}),
+      joinedAt: DateTime.parse(
+        json['joinedAt'] ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 }
@@ -96,8 +100,8 @@ class MemberUser {
 
   factory MemberUser.fromJson(Map<String, dynamic> json) {
     return MemberUser(
-      id: json['id'],
-      email: json['email'],
+      id: json['id'] as int? ?? 0,
+      email: json['email'] ?? '',
       avatarUrl: json['avatarUrl'],
     );
   }
@@ -122,12 +126,14 @@ class JoinRequest {
 
   factory JoinRequest.fromJson(Map<String, dynamic> json) {
     return JoinRequest(
-      id: json['id'],
-      userId: json['userId'],
-      workspaceId: json['workspaceId'],
-      status: json['status'],
-      user: MemberUser.fromJson(json['user']),
-      createdAt: DateTime.parse(json['createdAt']),
+      id: json['id'] as int? ?? 0,
+      userId: json['userId'] as int? ?? 0,
+      workspaceId: json['workspaceId'] as int? ?? 0,
+      status: json['status'] ?? 'pending',
+      user: MemberUser.fromJson(json['user'] ?? {'id': 0, 'email': ''}),
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 }
