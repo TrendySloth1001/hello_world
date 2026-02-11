@@ -353,15 +353,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
       // Fetch the complete log details from backend
       final detailedLog = await _adminService.getActivityLogDetails(log['id']);
-      
+
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
 
@@ -391,7 +389,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     const Text(
                       'Transaction Details',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -410,24 +411,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _buildSectionHeader('Request Info'),
                       _buildDetailRow('Method', detailedLog['method'] ?? 'N/A'),
                       _buildDetailRow('Path', detailedLog['path'] ?? 'N/A'),
-                      _buildDetailRow('Status Code', '${detailedLog['statusCode'] ?? 'N/A'}'),
-                      _buildDetailRow('Duration', '${detailedLog['duration'] ?? 0}ms'),
+                      _buildDetailRow(
+                        'Status Code',
+                        '${detailedLog['statusCode'] ?? 'N/A'}',
+                      ),
+                      _buildDetailRow(
+                        'Duration',
+                        '${detailedLog['duration'] ?? 0}ms',
+                      ),
                       const SizedBox(height: 24),
-                      
+
                       _buildSectionHeader('Meta Info'),
                       _buildDetailRow(
                         'User',
-                        user != null 
-                          ? '${user['email'] ?? 'Unknown'} (ID: ${detailedLog['userId']})' 
-                          : 'Anonymous',
+                        user != null
+                            ? '${user['email'] ?? 'Unknown'} (ID: ${detailedLog['userId']})'
+                            : 'Anonymous',
                       ),
-                      _buildDetailRow('IP Address', detailedLog['ipAddress'] ?? 'N/A'),
-                      _buildDetailRow('User Agent', detailedLog['userAgent'] ?? 'N/A'),
                       _buildDetailRow(
-                        'Timestamp', 
-                        detailedLog['createdAt'] != null 
-                          ? DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(detailedLog['createdAt']).toLocal())
-                          : 'N/A'
+                        'IP Address',
+                        detailedLog['ipAddress'] ?? 'N/A',
+                      ),
+                      _buildDetailRow(
+                        'User Agent',
+                        detailedLog['userAgent'] ?? 'N/A',
+                      ),
+                      _buildDetailRow(
+                        'Timestamp',
+                        detailedLog['createdAt'] != null
+                            ? DateFormat('yyyy-MM-dd HH:mm:ss').format(
+                                DateTime.parse(
+                                  detailedLog['createdAt'],
+                                ).toLocal(),
+                              )
+                            : 'N/A',
                       ),
                       const SizedBox(height: 24),
 
@@ -445,28 +462,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const SizedBox(height: 24),
                       ],
 
-                      if (query != null && query is Map && query.isNotEmpty) ...[
+                      if (query != null &&
+                          query is Map &&
+                          query.isNotEmpty) ...[
                         _buildSectionHeader('Query Params'),
                         _buildKeyValueTable(Map<String, dynamic>.from(query)),
                         const SizedBox(height: 24),
                       ],
 
-                      if (headers != null && headers is Map && headers.isNotEmpty) ...[
+                      if (headers != null &&
+                          headers is Map &&
+                          headers.isNotEmpty) ...[
                         _buildSectionHeader('Headers'),
                         _buildKeyValueTable(Map<String, dynamic>.from(headers)),
                       ],
 
                       // Show message if no details available
-                      if ((responseBody == null || (responseBody is Map && responseBody.isEmpty)) &&
-                          (requestBody == null || (requestBody is Map && requestBody.isEmpty)) &&
+                      if ((responseBody == null ||
+                              (responseBody is Map && responseBody.isEmpty)) &&
+                          (requestBody == null ||
+                              (requestBody is Map && requestBody.isEmpty)) &&
                           (query == null || (query is Map && query.isEmpty)) &&
-                          (headers == null || (headers is Map && headers.isEmpty))) ...[
+                          (headers == null ||
+                              (headers is Map && headers.isEmpty))) ...[
                         const Center(
                           child: Padding(
                             padding: EdgeInsets.all(32.0),
                             child: Column(
                               children: [
-                                Icon(Icons.info_outline, size: 48, color: Colors.grey),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 48,
+                                  color: Colors.grey,
+                                ),
                                 SizedBox(height: 16),
                                 Text(
                                   'No additional transaction details available',
