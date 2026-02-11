@@ -62,7 +62,12 @@ class _MainShellState extends State<MainShell> {
             top: BorderSide(color: Colors.white.withOpacity(0.06)),
           ),
         ),
-        padding: const EdgeInsets.only(top: 8, bottom: 24, left: 16, right: 16),
+        padding: EdgeInsets.only(
+          top: 8,
+          bottom: MediaQuery.of(context).padding.bottom + 8,
+          left: 16,
+          right: 16,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [

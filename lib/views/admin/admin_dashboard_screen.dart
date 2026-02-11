@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'user_activity_screen.dart';
 import 'send_notification_screen.dart';
 import '../../widgets/shimmer/log_shimmer_loader.dart';
-import '../widgets/daily_requests_chart.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -19,6 +18,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AdminService _adminService = AdminService();
   bool _isLoading = true;
   Map<String, dynamic>? _stats;
+  Map<String, dynamic>? _systemStatus;
   List<dynamic> _logs = [];
   int _currentPage = 1;
   bool _hasMoreLogs = true;
@@ -54,12 +54,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       setState(() => _isLoading = true);
     }
     try {
-      final stats = await _adminService.getDashboardStats();
-      final logsData = await _adminService.getActivityLogs(page: 1);
+      final results = await Future.wait([
+        _adminService.getDashboardStats(),
+        _adminService.getActivityLogs(page: 1),
+        _adminService.getSystemStatus(),
+      ]);
 
       if (mounted) {
         setState(() {
-          _stats = stats;
+          _stats = results[0];
+          final logsData = results[1];
+          _systemStatus = results[2];
           _logs = logsData['logs'];
           _currentPage = 1;
           _hasMoreLogs = logsData['pagination']['hasMore'] ?? false;
@@ -142,11 +147,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         children: [
                           _buildStatsGrid(),
                           const SizedBox(height: 24),
-                          if (_stats != null &&
-                              _stats!.containsKey('dailyRequests'))
-                            DailyRequestsChart(
-                              dailyRequests: _stats!['dailyRequests'] ?? [],
-                            ),
+                          if (_systemStatus != null) _buildWorkersSection(),
                           const SizedBox(height: 24),
                           const Text(
                             'Recent Activity',
@@ -178,6 +179,259 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildWorkersSection() {
+    if (_systemStatus == null) return const SizedBox.shrink();
+
+    final workers = _systemStatus!['workers'] as List<dynamic>? ?? [];
+    final services = _systemStatus!['services'] as Map<String, dynamic>? ?? {};
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Background Workers & Services',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        // Workers
+        ...workers.map((worker) => _buildWorkerCard(worker)),
+        const SizedBox(height: 16),
+        // Services status
+        Row(
+          children: [
+            Expanded(
+              child: _buildServiceCard(
+                'Redis',
+                services['redis']?['status'] ?? 'unknown',
+                Icons.memory,
+                {
+                  'Memory': services['redis']?['memoryUsed'] ?? 'N/A',
+                  'Clients':
+                      '${services['redis']?['connectedClients'] ?? 'N/A'}',
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildServiceCard(
+                'Database',
+                services['database']?['status'] ?? 'unknown',
+                Icons.storage,
+                {'Type': services['database']?['type'] ?? 'N/A'},
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorkerCard(dynamic worker) {
+    final status = worker['status'] as String? ?? 'unknown';
+    final stats = worker['stats'] as Map<String, dynamic>? ?? {};
+    final lastRun = worker['lastRun'] != null
+        ? DateTime.parse(worker['lastRun']).toLocal()
+        : null;
+
+    Color statusColor;
+    IconData statusIcon;
+    switch (status) {
+      case 'running':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'stopped':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.help;
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(statusIcon, color: statusColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    worker['name'] ?? 'Unknown Worker',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Interval: ${worker['interval']} • Last run: ${lastRun != null ? DateFormat('HH:mm:ss').format(lastRun) : 'Never'}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _buildStatChip('Total Runs', '${worker['totalRuns'] ?? 0}'),
+                _buildStatChip(
+                  'Messages Synced',
+                  '${stats['totalMessagesSynced'] ?? 0}',
+                ),
+                _buildStatChip('Last Batch', '${stats['lastBatchSize'] ?? 0}'),
+                _buildStatChip('Queue Size', '${stats['queueSize'] ?? 0}'),
+                _buildStatChip(
+                  'Avg Time',
+                  '${stats['averageProcessingTime'] ?? 0}ms',
+                ),
+                if (stats['errors'] != null && stats['errors'] > 0)
+                  _buildStatChip(
+                    'Errors',
+                    '${stats['errors']}',
+                    color: Colors.red,
+                  ),
+              ],
+            ),
+            if (stats['lastError'] != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Last error: ${stats['lastError']}',
+                        style: const TextStyle(fontSize: 11, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceCard(
+    String name,
+    String status,
+    IconData icon,
+    Map<String, String> info,
+  ) {
+    Color statusColor = status == 'connected' ? Colors.green : Colors.red;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: statusColor),
+              ),
+              child: Text(
+                status.toUpperCase(),
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...info.entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '${e.key}: ${e.value}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatChip(String label, String value, {Color? color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: (color ?? Colors.blue).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          fontSize: 11,
+          color: color ?? Colors.blue,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 

@@ -69,6 +69,20 @@ class AdminService {
     }
   }
 
+  Future<Map<String, dynamic>> getSystemStatus() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/system/status'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load system status: ${response.statusCode}');
+    }
+  }
+
   Future<Map<String, dynamic>> getUsers({int page = 1}) async {
     final headers = await _getHeaders();
     final response = await http.get(
