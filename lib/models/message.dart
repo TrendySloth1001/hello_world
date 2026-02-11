@@ -17,6 +17,7 @@ class Message {
   final Map<String, dynamic>? task;
   final int? workspaceId;
   final Map<String, dynamic>? workspace;
+  final String? tempId;
 
   Message({
     required this.id,
@@ -33,6 +34,7 @@ class Message {
     this.task,
     this.workspaceId,
     this.workspace,
+    this.tempId,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -57,6 +59,7 @@ class Message {
       task: json['task'],
       workspaceId: json['workspaceId'],
       workspace: json['workspace'],
+      tempId: json['tempId'],
     );
   }
 }

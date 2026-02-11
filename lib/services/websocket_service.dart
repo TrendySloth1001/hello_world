@@ -122,6 +122,7 @@ class WebSocketService {
     int? replyToId,
     int? taskId,
     int? workspaceId,
+    String? tempId,
   }) {
     socket.emit('send_message', {
       'conversationId': conversationId,
@@ -130,6 +131,7 @@ class WebSocketService {
       'replyToId': replyToId,
       'taskId': taskId,
       'workspaceId': workspaceId,
+      'tempId': tempId,
     });
   }
 

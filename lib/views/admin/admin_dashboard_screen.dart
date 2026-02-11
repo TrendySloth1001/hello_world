@@ -4,6 +4,7 @@ import '../../services/admin_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'user_activity_screen.dart';
+import 'send_notification_screen.dart';
 import '../../widgets/shimmer/log_shimmer_loader.dart';
 import '../widgets/daily_requests_chart.dart';
 
@@ -111,6 +112,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            tooltip: 'Send Notification',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SendNotificationScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
@@ -335,89 +348,154 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  void _showLogDetails(dynamic log) {
-    final details = log['details'] ?? {};
-    final requestBody = details['body'];
-    final responseBody = details['response'];
-    final query = details['query'];
-    final headers = details['headers'];
-
-    showModalBottomSheet(
+  void _showLogDetails(dynamic log) async {
+    // Show loading dialog while fetching detailed data
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Transaction Details',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // Fetch the complete log details from backend
+      final detailedLog = await _adminService.getActivityLogDetails(log['id']);
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      final details = detailedLog['details'] ?? {};
+      final requestBody = details['body'];
+      final responseBody = details['response'];
+      final query = details['query'];
+      final headers = details['headers'];
+      final user = detailedLog['user'];
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildSectionHeader('Meta Info'),
-                    _buildDetailRow(
-                      'User ID',
-                      '${log['userId'] ?? 'Anonymous'}',
+                    const Text(
+                      'Transaction Details',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    _buildDetailRow('IP Address', '${log['ipAddress']}'),
-                    _buildDetailRow('User Agent', '${log['userAgent']}'),
-                    _buildDetailRow('Duration', '${log['duration']}ms'),
-                    const SizedBox(height: 24),
-
-                    if (responseBody != null) ...[
-                      _buildSectionHeader('Response Body'),
-                      _buildJsonBlock(responseBody),
-                      const SizedBox(height: 24),
-                    ],
-
-                    if (requestBody != null &&
-                        (requestBody as Map).isNotEmpty) ...[
-                      _buildSectionHeader('Request Body'),
-                      _buildJsonBlock(requestBody),
-                      const SizedBox(height: 24),
-                    ],
-
-                    if (query != null && (query as Map).isNotEmpty) ...[
-                      _buildSectionHeader('Query Params'),
-                      _buildKeyValueTable(Map<String, dynamic>.from(query)),
-                      const SizedBox(height: 24),
-                    ],
-
-                    if (headers != null && (headers as Map).isNotEmpty) ...[
-                      _buildSectionHeader('Headers'),
-                      _buildKeyValueTable(Map<String, dynamic>.from(headers)),
-                    ],
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader('Request Info'),
+                      _buildDetailRow('Method', detailedLog['method'] ?? 'N/A'),
+                      _buildDetailRow('Path', detailedLog['path'] ?? 'N/A'),
+                      _buildDetailRow('Status Code', '${detailedLog['statusCode'] ?? 'N/A'}'),
+                      _buildDetailRow('Duration', '${detailedLog['duration'] ?? 0}ms'),
+                      const SizedBox(height: 24),
+                      
+                      _buildSectionHeader('Meta Info'),
+                      _buildDetailRow(
+                        'User',
+                        user != null 
+                          ? '${user['email'] ?? 'Unknown'} (ID: ${detailedLog['userId']})' 
+                          : 'Anonymous',
+                      ),
+                      _buildDetailRow('IP Address', detailedLog['ipAddress'] ?? 'N/A'),
+                      _buildDetailRow('User Agent', detailedLog['userAgent'] ?? 'N/A'),
+                      _buildDetailRow(
+                        'Timestamp', 
+                        detailedLog['createdAt'] != null 
+                          ? DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(detailedLog['createdAt']).toLocal())
+                          : 'N/A'
+                      ),
+                      const SizedBox(height: 24),
+
+                      if (responseBody != null) ...[
+                        _buildSectionHeader('Response Body'),
+                        _buildJsonBlock(responseBody),
+                        const SizedBox(height: 24),
+                      ],
+
+                      if (requestBody != null &&
+                          requestBody is Map &&
+                          requestBody.isNotEmpty) ...[
+                        _buildSectionHeader('Request Body'),
+                        _buildJsonBlock(requestBody),
+                        const SizedBox(height: 24),
+                      ],
+
+                      if (query != null && query is Map && query.isNotEmpty) ...[
+                        _buildSectionHeader('Query Params'),
+                        _buildKeyValueTable(Map<String, dynamic>.from(query)),
+                        const SizedBox(height: 24),
+                      ],
+
+                      if (headers != null && headers is Map && headers.isNotEmpty) ...[
+                        _buildSectionHeader('Headers'),
+                        _buildKeyValueTable(Map<String, dynamic>.from(headers)),
+                      ],
+
+                      // Show message if no details available
+                      if ((responseBody == null || (responseBody is Map && responseBody.isEmpty)) &&
+                          (requestBody == null || (requestBody is Map && requestBody.isEmpty)) &&
+                          (query == null || (query is Map && query.isEmpty)) &&
+                          (headers == null || (headers is Map && headers.isEmpty))) ...[
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: Column(
+                              children: [
+                                Icon(Icons.info_outline, size: 48, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No additional transaction details available',
+                                  style: TextStyle(color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading transaction details: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildSectionHeader(String title) {

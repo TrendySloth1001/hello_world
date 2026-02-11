@@ -32,12 +32,16 @@ class AdminService {
   Future<Map<String, dynamic>> getActivityLogs({
     int page = 1,
     int? userId,
+    String? type,
     int limit = 20,
   }) async {
     final headers = await _getHeaders();
     String url = '$baseUrl/logs?page=$page&limit=$limit';
     if (userId != null) {
       url += '&userId=$userId';
+    }
+    if (type != null) {
+      url += '&type=$type';
     }
 
     final response = await http.get(Uri.parse(url), headers: headers);
@@ -46,6 +50,22 @@ class AdminService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to load logs: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getActivityLogDetails(int logId) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/logs/$logId'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 404) {
+      throw Exception('Log not found');
+    } else {
+      throw Exception('Failed to load log details: ${response.statusCode}');
     }
   }
 
@@ -72,6 +92,89 @@ class AdminService {
       } // Now always returns {users: [], pagination: {}}
     } else {
       throw Exception('Failed to load users: ${response.statusCode}');
+    }
+  }
+
+  Future<List<dynamic>> getAllUsersSimple() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/simple'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return decoded['users'] ?? [];
+    } else {
+      throw Exception('Failed to load users: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendNotificationToAll({
+    required String title,
+    required String message,
+    String type = 'general',
+    String priority = 'normal',
+    String? actionUrl,
+    Map<String, dynamic>? metadata,
+    DateTime? expiresAt,
+  }) async {
+    final headers = await _getHeaders();
+    final body = {
+      'title': title,
+      'message': message,
+      'type': type,
+      'priority': priority,
+      if (actionUrl != null) 'actionUrl': actionUrl,
+      if (metadata != null) 'metadata': metadata,
+      if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+    };
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/notifications/send-all'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to send notification: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendNotificationToUsers({
+    required List<int> userIds,
+    required String title,
+    required String message,
+    String type = 'general',
+    String priority = 'normal',
+    String? actionUrl,
+    Map<String, dynamic>? metadata,
+    DateTime? expiresAt,
+  }) async {
+    final headers = await _getHeaders();
+    final body = {
+      'userIds': userIds,
+      'title': title,
+      'message': message,
+      'type': type,
+      'priority': priority,
+      if (actionUrl != null) 'actionUrl': actionUrl,
+      if (metadata != null) 'metadata': metadata,
+      if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+    };
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/notifications/send'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to send notification: ${response.body}');
     }
   }
 }

@@ -112,10 +112,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
         if (mounted) {
           try {
             final newMessage = Message.fromJson(data);
-            if (!_messages.any((m) => m.id == newMessage.id)) {
+
+            // Check if we have an optimistic version of this message (by tempId)
+            final optimisticIndex = _messages.indexWhere((m) {
+              return m.tempId != null && m.tempId == newMessage.tempId;
+            });
+
+            if (optimisticIndex != -1) {
+              // Replace optimistic message with real one
+              setState(() {
+                _messages[optimisticIndex] = newMessage;
+              });
+            } else if (!_messages.any((m) => m.id == newMessage.id)) {
+              // New message from others or self (if not caught by optimistic)
               setState(() {
                 _messages.insert(0, newMessage);
-                // If message received, they stopped typing effectively
                 if (newMessage.senderId != widget.currentUserId) {
                   _isOtherUserTyping = false;
                 }
@@ -1679,6 +1690,45 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() => _isSending = true);
 
     try {
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final optimisticMessage = Message(
+        id: -DateTime.now()
+            .millisecondsSinceEpoch, // Negative ID for optimistic
+        conversationId: widget.conversationId,
+        senderId: widget.currentUserId,
+        content: content,
+        createdAt: DateTime.now(),
+        tempId: tempId,
+        replyTo: _replyingTo,
+        task: _selectedTask != null
+            ? {
+                'id': _selectedTask!.id,
+                'title': _selectedTask!.title,
+                'status': _selectedTask!.status,
+                'priority': _selectedTask!.priority,
+              }
+            : null,
+        workspace: _selectedWorkspace != null
+            ? {
+                'id': _selectedWorkspace!.id,
+                'name': _selectedWorkspace!.name,
+                'avatarUrl': _selectedWorkspace!.avatarUrl,
+              }
+            : null,
+      );
+
+      if (mounted) {
+        setState(() {
+          _messages.insert(0, optimisticMessage);
+          _messageController.clear();
+          _isSending = false;
+          _replyingTo = null;
+          _selectedTask = null;
+          _selectedWorkspace = null;
+        });
+        _scrollToBottom();
+      }
+
       _webSocketService.sendMessage(
         widget.conversationId,
         widget.currentUserId,
@@ -1686,18 +1736,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
         replyToId: _replyingTo?.id,
         taskId: _selectedTask?.id,
         workspaceId: _selectedWorkspace?.id,
+        tempId: tempId,
       );
-
-      if (mounted) {
-        _messageController.clear();
-        setState(() {
-          _isSending = false;
-          _replyingTo = null; // Clear reply state
-          _selectedTask = null; // Clear task selection
-          _selectedWorkspace = null; // Clear workspace selection
-        });
-        _scrollToBottom();
-      }
     } catch (e) {
       if (mounted) {
         setState(() => _isSending = false);
