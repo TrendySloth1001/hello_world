@@ -217,8 +217,8 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // App Logo
-              Image.asset(AppAssets.logo, height: 150, fit: BoxFit.contain),
+              // Login GIF
+              Image.asset(AppAssets.login, height: 200, fit: BoxFit.contain),
               const SizedBox(height: 32),
               Text(
                 'Welcome Back',
