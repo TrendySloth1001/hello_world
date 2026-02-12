@@ -6,6 +6,8 @@ import '../services/task_service.dart';
 import '../models/workspace.dart';
 import '../models/task.dart'; // Task model
 import '../services/profile_service.dart';
+import '../config/onboarding_config.dart';
+import '../widgets/app_image.dart';
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
 import '../widgets/shimmer/task_shimmer_loader.dart';
@@ -520,13 +522,17 @@ class _WorkspaceDetailScreenState extends State<WorkspaceDetailScreen> {
     final filtered = _filteredTasks;
 
     if (_tasks.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.task_alt, size: 64, color: Colors.white24),
-            SizedBox(height: 16),
-            Text('No tasks yet', style: TextStyle(color: Colors.white54)),
+            AppImage(
+              assetPath: AppAssets.homeSettings,
+              height: 180,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(height: 16),
+            const Text('No tasks yet', style: TextStyle(color: Colors.white54)),
           ],
         ),
       );

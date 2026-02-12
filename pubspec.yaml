@@ -43,6 +43,7 @@ dependencies:
   shimmer: ^3.0.0
   fl_chart: ^0.68.0
   timeago: ^3.7.1
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +78,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - assets/new_images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

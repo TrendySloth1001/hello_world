@@ -3,6 +3,8 @@ import '../services/workspace_service.dart';
 import '../services/notification_service.dart';
 import '../models/workspace.dart';
 import '../models/notification.dart';
+import '../config/onboarding_config.dart';
+import '../widgets/app_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class NotificationsScreen extends StatefulWidget {
@@ -187,10 +189,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.notifications_none_outlined,
-            size: 64,
-            color: Colors.white24,
+          AppImage(
+            assetPath: AppAssets.notifications,
+            height: 180,
+            fit: BoxFit.contain,
           ),
           const SizedBox(height: 16),
           const Text(

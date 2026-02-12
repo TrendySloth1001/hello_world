@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../controllers/auth_controller.dart';
 import '../services/auth_service.dart';
 import '../config/onboarding_config.dart';
+import '../widgets/app_image.dart';
 import 'session_conflict_screen.dart';
 import 'main_shell.dart';
 import 'signup_screen.dart';
@@ -217,8 +218,12 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // Login GIF
-              Image.asset(AppAssets.login, height: 200, fit: BoxFit.contain),
+              // Login Image
+              AppImage(
+                assetPath: AppAssets.login,
+                height: 200,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 32),
               Text(
                 'Welcome Back',

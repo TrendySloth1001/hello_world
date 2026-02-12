@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'notifications_screen.dart';
 import '../services/workspace_service.dart';
 import '../widgets/shimmer/workspace_shimmer_loader.dart'; // Add import
+import '../widgets/app_image.dart';
 
 import '../models/workspace.dart';
 import '../config/onboarding_config.dart';
@@ -437,7 +438,11 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(AppAssets.welcome, height: 180, fit: BoxFit.contain),
+            AppImage(
+              assetPath: AppAssets.welcome,
+              height: 180,
+              fit: BoxFit.contain,
+            ),
             const SizedBox(height: 32),
             const Text(
               'No Workspaces Yet',

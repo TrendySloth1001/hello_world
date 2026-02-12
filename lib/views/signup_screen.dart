@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
 import '../config/onboarding_config.dart';
+import '../widgets/app_image.dart';
 import 'home_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -66,8 +67,12 @@ class _SignupScreenState extends State<SignupScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // Signup GIF
-              Image.asset(AppAssets.signup, height: 200, fit: BoxFit.contain),
+              // Signup Image
+              AppImage(
+                assetPath: AppAssets.signup,
+                height: 200,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 32),
               Text(
                 'Join TaskFlow',

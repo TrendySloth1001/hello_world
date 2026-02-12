@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/onboarding_config.dart';
+import '../widgets/app_image.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -35,11 +36,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // GIF Image
+                        // Onboarding Image
                         Expanded(
                           flex: 3,
-                          child: Image.asset(
-                            slide['image']!,
+                          child: AppImage(
+                            assetPath: slide['image']!,
                             fit: BoxFit.contain,
                           ),
                         ),
